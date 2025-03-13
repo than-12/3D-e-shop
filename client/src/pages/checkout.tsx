@@ -97,7 +97,7 @@ const Checkout = () => {
       city: "",
       state: "",
       zipCode: "",
-      country: "US",
+      country: "GR",
       cardName: "",
       cardNumber: "",
       expiryDate: "",
@@ -123,8 +123,9 @@ const Checkout = () => {
   };
   
   const calculateShipping = (subtotal: number) => {
-    // Free shipping over $75, otherwise $8.95
-    return subtotal > 75 ? 0 : 8.95;
+    // Free shipping over €100, otherwise €12.95
+    // Based in Greece, serving all of Europe
+    return subtotal > 100 ? 0 : 12.95;
   };
   
   const calculateTotal = () => {
@@ -393,9 +394,22 @@ const Checkout = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="GR">Greece</SelectItem>
+                              <SelectItem value="DE">Germany</SelectItem>
+                              <SelectItem value="FR">France</SelectItem>
+                              <SelectItem value="IT">Italy</SelectItem>
+                              <SelectItem value="ES">Spain</SelectItem>
+                              <SelectItem value="PT">Portugal</SelectItem>
+                              <SelectItem value="BE">Belgium</SelectItem>
+                              <SelectItem value="NL">Netherlands</SelectItem>
+                              <SelectItem value="AT">Austria</SelectItem>
+                              <SelectItem value="GB">United Kingdom</SelectItem>
+                              <SelectItem value="IE">Ireland</SelectItem>
+                              <SelectItem value="DK">Denmark</SelectItem>
+                              <SelectItem value="SE">Sweden</SelectItem>
+                              <SelectItem value="FI">Finland</SelectItem>
                               <SelectItem value="US">United States</SelectItem>
                               <SelectItem value="CA">Canada</SelectItem>
-                              <SelectItem value="GB">United Kingdom</SelectItem>
                               <SelectItem value="AU">Australia</SelectItem>
                             </SelectContent>
                           </Select>
@@ -559,7 +573,7 @@ const Checkout = () => {
                       </span>
                     </div>
                     <div className="text-right">
-                      ${(parseFloat(item.product.price.toString()) * item.quantity).toFixed(2)}
+                      €{(parseFloat(item.product.price.toString()) * item.quantity).toFixed(2)}
                     </div>
                   </div>
                 ))}
@@ -570,14 +584,14 @@ const Checkout = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
-                  <span>${calculateSubtotal().toFixed(2)}</span>
+                  <span>€{calculateSubtotal().toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Shipping</span>
                   <span>
                     {calculateShipping(calculateSubtotal()) === 0 
                       ? 'Free' 
-                      : `$${calculateShipping(calculateSubtotal()).toFixed(2)}`
+                      : `€${calculateShipping(calculateSubtotal()).toFixed(2)}`
                     }
                   </span>
                 </div>
@@ -597,7 +611,7 @@ const Checkout = () => {
             <CardFooter className="flex-col space-y-4">
               <div className="flex items-center text-sm text-gray-600 space-x-2">
                 <Package className="h-4 w-4" />
-                <span>Free shipping on orders over $75</span>
+                <span>Free shipping on orders over €100</span>
               </div>
               <div className="flex items-center text-sm text-gray-600 space-x-2">
                 <ShieldCheck className="h-4 w-4" />
