@@ -81,6 +81,12 @@ const Header = () => {
                 </a>
               </Link>
               
+              <Link href="/lithophane">
+                <a className={`text-gray-900 hover:text-primary font-medium ${location === '/lithophane' ? 'text-primary' : ''}`}>
+                  Lithophanes
+                </a>
+              </Link>
+              
               <Link href="/about">
                 <a className={`text-gray-900 hover:text-primary font-medium ${location === '/about' ? 'text-primary' : ''}`}>
                   About Us
@@ -142,6 +148,11 @@ const Header = () => {
           <Link href="/calculator">
             <a className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/calculator' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
               Cost Calculator
+            </a>
+          </Link>
+          <Link href="/lithophane">
+            <a className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/lithophane' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
+              Lithophanes
             </a>
           </Link>
           <Link href="/about">

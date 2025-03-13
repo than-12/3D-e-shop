@@ -257,6 +257,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+  
+  // Lithophane endpoints
+  // Calculate lithophane cost
+  app.post('/api/lithophanes/calculate', async (req: Request, res: Response) => {
+    try {
+      // We don't fully validate here as we're just estimating
+      const lithophaneDetails = req.body;
+      const costEstimate = await storage.calculateLithophaneCost(lithophaneDetails);
+      res.json(costEstimate);
+    } catch (error) {
+      res.status(500).json({ message: `Failed to calculate lithophane cost: ${error}` });
+    }
+  });
+  
+  // Save lithophane order
+  app.post('/api/lithophanes', async (req: Request, res: Response) => {
+    try {
+      const lithophaneData = insertLithophaneSchema.parse(req.body);
+      const lithophane = await storage.saveLithophane(lithophaneData);
+      res.status(201).json(lithophane);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid lithophane data', errors: error.errors });
+      } else {
+        res.status(500).json({ message: `Failed to save lithophane: ${error}` });
+      }
+    }
+  });
+  
+  // Get all lithophanes
+  app.get('/api/lithophanes', async (_req: Request, res: Response) => {
+    try {
+      const lithophanes = await storage.getLithophanes();
+      res.json(lithophanes);
+    } catch (error) {
+      res.status(500).json({ message: `Failed to fetch lithophanes: ${error}` });
+    }
+  });
+  
+  // Get single lithophane by ID
+  app.get('/api/lithophanes/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid lithophane ID' });
+      }
+      
+      const lithophane = await storage.getLithophaneById(id);
+      if (lithophane) {
+        res.json(lithophane);
+      } else {
+        res.status(404).json({ message: 'Lithophane not found' });
+      }
+    } catch (error) {
+      res.status(500).json({ message: `Failed to fetch lithophane: ${error}` });
+    }
+  });
 
   // Create HTTP server
   const httpServer = createServer(app);
