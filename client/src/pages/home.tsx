@@ -1,40 +1,140 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product } from "@shared/schema";
 import CategoryNav from "@/components/category-nav";
 import ProductCard from "@/components/product-card";
+import { useState, useEffect, useCallback } from "react";
 
 const Home = () => {
   const { data: featuredProducts, isLoading } = useQuery<Product[]>({
     queryKey: ['/api/products', { featured: true }],
   });
+  
+  // Carousel state
+  const [currentSlide, setCurrentSlide] = useState(0);
+  
+  const carouselSlides = [
+    {
+      id: 1,
+      image: "https://images.unsplash.com/photo-1581093450021-a7a5e9e1f993?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&h=600&q=80",
+      title: "High-Quality 3D Printed Products",
+      description: "Transform your ideas into reality with our catalog of professionally designed 3D printed products.",
+      buttonText: "Shop Products",
+      buttonLink: "/products"
+    },
+    {
+      id: 2,
+      image: "https://images.unsplash.com/photo-1617791160536-598cf32026fb?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&h=600&q=80",
+      title: "Instant Cost Estimation",
+      description: "Get accurate pricing for your 3D printing projects with our advanced cost calculator.",
+      buttonText: "Get Cost Estimate",
+      buttonLink: "/calculator"
+    },
+    {
+      id: 3,
+      image: "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&h=600&q=80",
+      title: "Custom Lithophane Printing",
+      description: "Turn your favorite photos into stunning lithophanes that come to life when illuminated.",
+      buttonText: "Create Lithophane",
+      buttonLink: "/lithophane"
+    }
+  ];
+  
+  // Handle slide navigation
+  const goToSlide = useCallback((index: number) => {
+    setCurrentSlide(index);
+  }, []);
+  
+  const nextSlide = useCallback(() => {
+    setCurrentSlide(prev => (prev + 1) % carouselSlides.length);
+  }, [carouselSlides.length]);
+  
+  const prevSlide = useCallback(() => {
+    setCurrentSlide(prev => (prev - 1 + carouselSlides.length) % carouselSlides.length);
+  }, [carouselSlides.length]);
+  
+  // Auto-advance slides every 4 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      nextSlide();
+    }, 4000);
+    
+    return () => clearInterval(timer);
+  }, [nextSlide]);
 
   return (
     <div>
-      {/* Hero Section */}
-      <div className="relative bg-gray-900">
+      {/* Hero Section with Carousel */}
+      <div className="relative bg-gray-900 h-[600px]">
+        {/* Slides */}
         <div className="absolute inset-0 overflow-hidden">
-          <img 
-            src="https://images.unsplash.com/photo-1581093450021-a7a5e9e1f993?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&h=600&q=80" 
-            alt="3D Printing Background" 
-            className="w-full h-full object-cover opacity-50"
-          />
+          {carouselSlides.map((slide, index) => (
+            <div 
+              key={slide.id}
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}
+            >
+              <img 
+                src={slide.image} 
+                alt={slide.title} 
+                className="w-full h-full object-cover opacity-50"
+              />
+              <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+            </div>
+          ))}
         </div>
-        <div className="relative max-w-7xl mx-auto py-24 px-4 sm:py-32 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">Custom 3D Printing Solutions</h1>
-          <p className="mt-6 text-xl text-gray-300 max-w-3xl">
-            Transform your ideas into reality with our professional 3D printing services. Upload your STL files or choose from our catalog of ready-to-print designs.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4">
-            <Button asChild size="lg" className="font-medium">
-              <Link href="/products">Shop Products</Link>
-            </Button>
-            <Button asChild size="lg" variant="secondary" className="bg-amber-500 hover:bg-amber-600 text-white font-medium">
-              <Link href="/calculator">Get Cost Estimate</Link>
-            </Button>
+        
+        {/* Content */}
+        <div className="relative h-full flex items-center">
+          <div className="max-w-7xl w-full mx-auto px-4 py-24 sm:py-32 sm:px-6 lg:px-8">
+            {carouselSlides.map((slide, index) => (
+              <div 
+                key={slide.id}
+                className={`transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100' : 'opacity-0 absolute'}`}
+                style={{ pointerEvents: index === currentSlide ? 'auto' : 'none' }}
+              >
+                <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">{slide.title}</h1>
+                <p className="mt-6 text-xl text-gray-300 max-w-3xl">
+                  {slide.description}
+                </p>
+                <div className="mt-10">
+                  <Button asChild size="lg" className={`font-medium ${index === 1 ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''} ${index === 2 ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}>
+                    <Link href={slide.buttonLink}>{slide.buttonText}</Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
+        
+        {/* Navigation buttons */}
+        <div className="absolute inset-y-0 left-0 flex items-center">
+          <button 
+            onClick={prevSlide}
+            className="bg-black bg-opacity-30 hover:bg-opacity-50 text-white p-2 rounded-r-lg focus:outline-none ml-4"
+          >
+            <ChevronLeft size={24} />
+          </button>
+        </div>
+        <div className="absolute inset-y-0 right-0 flex items-center">
+          <button 
+            onClick={nextSlide}
+            className="bg-black bg-opacity-30 hover:bg-opacity-50 text-white p-2 rounded-l-lg focus:outline-none mr-4"
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+        
+        {/* Indicators */}
+        <div className="absolute bottom-5 left-0 right-0 flex justify-center space-x-2">
+          {carouselSlides.map((_, index) => (
+            <button 
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`w-3 h-3 rounded-full ${index === currentSlide ? 'bg-white' : 'bg-white bg-opacity-50'}`}
+            />
+          ))}
         </div>
       </div>
 
