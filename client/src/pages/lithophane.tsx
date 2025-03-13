@@ -169,13 +169,7 @@ export default function LithophanePage() {
         delete lithophaneData.id; // Remove the preview ID
         
         // Submit the lithophane order
-        const response = await apiRequest('/api/lithophanes', {
-          method: 'POST',
-          body: JSON.stringify(lithophaneData),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await apiRequest('/api/lithophanes', 'POST', lithophaneData);
         
         toast({
           title: "Order Submitted",
