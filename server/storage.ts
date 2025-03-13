@@ -6,7 +6,8 @@ import {
   orders, type Order, type InsertOrder,
   orderItems, type OrderItem, type InsertOrderItem,
   customPrints, type CustomPrint, type InsertCustomPrint,
-  contactMessages, type ContactMessage, type InsertContactMessage
+  contactMessages, type ContactMessage, type InsertContactMessage,
+  lithophanes, type Lithophane, type InsertLithophane
 } from "@shared/schema";
 
 export interface IStorage {

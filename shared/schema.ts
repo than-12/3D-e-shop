@@ -107,6 +107,35 @@ export const contactMessages = pgTable("contact_messages", {
   responded: boolean("responded").default(false),
 });
 
+// Lithophane prints
+export const lithophanes = pgTable("lithophanes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  imageName: text("image_name").notNull(),
+  imageSize: integer("image_size").notNull(), // in bytes
+  imageFormat: text("image_format").notNull(), // jpg, png, etc
+  thickness: decimal("thickness", { precision: 5, scale: 2 }).notNull(), // in mm
+  width: decimal("width", { precision: 6, scale: 2 }).notNull(), // in mm
+  height: decimal("height", { precision: 6, scale: 2 }).notNull(), // in mm
+  baseThickness: decimal("base_thickness", { precision: 5, scale: 2 }).notNull(), // in mm
+  material: text("material").notNull(), // PLA, ABS, etc
+  quality: text("quality").notNull(), // draft, standard, fine
+  infill: integer("infill").notNull(), // percentage
+  border: boolean("border").default(true),
+  borderWidth: decimal("border_width", { precision: 5, scale: 2 }), // in mm
+  borderHeight: decimal("border_height", { precision: 5, scale: 2 }), // in mm
+  invertImage: boolean("invert_image").default(false),
+  negative: boolean("negative").default(false),
+  printTime: integer("print_time"), // in minutes
+  materialCost: decimal("material_cost", { precision: 10, scale: 2 }),
+  printTimeCost: decimal("print_time_cost", { precision: 10, scale: 2 }),
+  setupFee: decimal("setup_fee", { precision: 10, scale: 2 }),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }),
+  status: text("status").notNull().default("pending"),
+  imagePreview: text("image_preview"), // Base64 encoded preview or URL
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Create insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -189,6 +218,32 @@ export const insertContactMessageSchema = createInsertSchema(contactMessages).pi
   message: true,
 });
 
+export const insertLithophaneSchema = createInsertSchema(lithophanes).pick({
+  userId: true,
+  imageName: true,
+  imageSize: true,
+  imageFormat: true,
+  thickness: true,
+  width: true,
+  height: true,
+  baseThickness: true,
+  material: true,
+  quality: true,
+  infill: true,
+  border: true,
+  borderWidth: true,
+  borderHeight: true,
+  invertImage: true,
+  negative: true,
+  printTime: true,
+  materialCost: true,
+  printTimeCost: true,
+  setupFee: true,
+  totalCost: true,
+  status: true,
+  imagePreview: true,
+});
+
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -213,3 +268,6 @@ export type CustomPrint = typeof customPrints.$inferSelect;
 
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
 export type ContactMessage = typeof contactMessages.$inferSelect;
+
+export type InsertLithophane = z.infer<typeof insertLithophaneSchema>;
+export type Lithophane = typeof lithophanes.$inferSelect;
