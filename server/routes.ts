@@ -6,6 +6,7 @@ import {
   insertCartItemSchema,
   insertContactMessageSchema,
   insertCustomPrintSchema,
+  insertLithophaneSchema,
   insertOrderSchema,
   insertOrderItemSchema,
   insertUserSchema

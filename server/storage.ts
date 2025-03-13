@@ -47,6 +47,12 @@ export interface IStorage {
   saveCustomPrint(customPrint: InsertCustomPrint): Promise<CustomPrint>;
   getCustomPrints(userId?: number): Promise<CustomPrint[]>;
   
+  // Lithophane Prints
+  calculateLithophaneCost(lithophaneDetails: Partial<InsertLithophane>): Promise<Lithophane>;
+  saveLithophane(lithophane: InsertLithophane): Promise<Lithophane>;
+  getLithophanes(userId?: number): Promise<Lithophane[]>;
+  getLithophaneById(id: number): Promise<Lithophane | undefined>;
+  
   // Contact 
   saveContactMessage(message: InsertContactMessage): Promise<ContactMessage>;
   getContactMessages(): Promise<ContactMessage[]>;
@@ -61,6 +67,7 @@ export class MemStorage implements IStorage {
   private orderItems: Map<number, OrderItem>;
   private customPrints: Map<number, CustomPrint>;
   private contactMessages: Map<number, ContactMessage>;
+  private lithophanes: Map<number, Lithophane>;
   
   private userIdCounter: number;
   private categoryIdCounter: number;
@@ -70,6 +77,7 @@ export class MemStorage implements IStorage {
   private orderItemIdCounter: number;
   private customPrintIdCounter: number;
   private contactMessageIdCounter: number;
+  private lithophaneIdCounter: number;
   
   constructor() {
     this.users = new Map();
@@ -80,6 +88,7 @@ export class MemStorage implements IStorage {
     this.orderItems = new Map();
     this.customPrints = new Map();
     this.contactMessages = new Map();
+    this.lithophanes = new Map();
     
     this.userIdCounter = 1;
     this.categoryIdCounter = 1;
@@ -89,6 +98,7 @@ export class MemStorage implements IStorage {
     this.orderItemIdCounter = 1;
     this.customPrintIdCounter = 1;
     this.contactMessageIdCounter = 1;
+    this.lithophaneIdCounter = 1;
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -551,6 +561,103 @@ export class MemStorage implements IStorage {
   async getContactMessages(): Promise<ContactMessage[]> {
     return Array.from(this.contactMessages.values())
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  // Lithophane Prints
+  async calculateLithophaneCost(lithophaneDetails: Partial<InsertLithophane>): Promise<Lithophane> {
+    // Simplified calculation model for lithophanes
+    const materialCostPerGram = this.getMaterialCostPerGram(lithophaneDetails.material || 'PLA');
+    const laborCostPerMinute = 0.12; // $0.12 per minute - slightly higher than normal prints
+    const setupFee = 6.0; // Base setup fee for lithophanes
+    
+    // Calculate volume based on dimensions and thickness
+    const width = parseFloat(String(lithophaneDetails.width || 100)); // mm
+    const height = parseFloat(String(lithophaneDetails.height || 100)); // mm
+    const thickness = parseFloat(String(lithophaneDetails.thickness || 3)); // mm
+    const baseThickness = parseFloat(String(lithophaneDetails.baseThickness || 1)); // mm
+    
+    // Calculate average volume (lithophanes vary in thickness based on image)
+    const avgThickness = (thickness + baseThickness) / 2;
+    const volume = (width * height * avgThickness) / 1000; // convert to cm³
+    
+    // Calculate weight based on volume and material density
+    const density = this.getMaterialDensity(lithophaneDetails.material || 'PLA');
+    const weight = volume * density;
+    
+    // Estimate print time (lithophanes are printed slowly for detail)
+    const qualityFactor = this.getQualityFactor(lithophaneDetails.quality || 'fine'); // Usually fine quality
+    const infillFactor = (lithophaneDetails.infill || 15) / 100;
+    // Lithophanes take longer due to detail work
+    const printTime = Math.round(volume * qualityFactor * (0.7 + infillFactor * 0.5) * 1.2);
+    
+    // Add time for border if needed
+    const hasBorder = lithophaneDetails.border !== false;
+    const borderTime = hasBorder ? 
+      Math.round((width + height) * 0.2) : 0; // Simplified border time calculation
+    
+    const totalPrintTime = printTime + borderTime;
+    
+    // Calculate costs
+    const materialCost = parseFloat((weight * materialCostPerGram).toFixed(2));
+    const printTimeCost = parseFloat((totalPrintTime * laborCostPerMinute).toFixed(2));
+    
+    // Additional processing fee for photo conversion
+    const processingFee = 3.0;
+    const totalCost = parseFloat((materialCost + printTimeCost + setupFee + processingFee).toFixed(2));
+    
+    const id = this.lithophaneIdCounter; // Not incrementing yet, just for preview
+    const now = new Date();
+    
+    return {
+      id,
+      userId: lithophaneDetails.userId,
+      imageName: lithophaneDetails.imageName || 'unknown.jpg',
+      imageSize: lithophaneDetails.imageSize || 0,
+      imageFormat: lithophaneDetails.imageFormat || 'jpg',
+      width: String(width),
+      height: String(height),
+      thickness: String(thickness),
+      baseThickness: String(baseThickness),
+      material: lithophaneDetails.material || 'PLA',
+      quality: lithophaneDetails.quality || 'fine',
+      infill: lithophaneDetails.infill || 15,
+      border: hasBorder,
+      borderWidth: hasBorder ? String(lithophaneDetails.borderWidth || 5) : null,
+      borderHeight: hasBorder ? String(lithophaneDetails.borderHeight || 5) : null,
+      invertImage: lithophaneDetails.invertImage || false,
+      negative: lithophaneDetails.negative || false,
+      printTime: totalPrintTime,
+      materialCost: String(materialCost),
+      printTimeCost: String(printTimeCost),
+      setupFee: String(setupFee),
+      totalCost: String(totalCost),
+      status: 'preview',
+      imagePreview: lithophaneDetails.imagePreview || null,
+      createdAt: now
+    };
+  }
+  
+  async saveLithophane(lithophane: InsertLithophane): Promise<Lithophane> {
+    const id = this.lithophaneIdCounter++;
+    const now = new Date();
+    const newLithophane: Lithophane = { 
+      ...lithophane, 
+      id, 
+      createdAt: now, 
+      status: 'pending'
+    };
+    this.lithophanes.set(id, newLithophane);
+    return newLithophane;
+  }
+  
+  async getLithophanes(userId?: number): Promise<Lithophane[]> {
+    return Array.from(this.lithophanes.values())
+      .filter(lithophane => userId ? lithophane.userId === userId : true)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+  
+  async getLithophaneById(id: number): Promise<Lithophane | undefined> {
+    return this.lithophanes.get(id);
   }
 }
 
