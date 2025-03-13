@@ -46,10 +46,8 @@ const Header = () => {
               <span className="text-xl font-bold">3D PrintCraft</span>
             </Link>
             <nav className="hidden md:ml-10 md:flex md:space-x-8">
-              <Link href="/">
-                <a className={`text-gray-900 hover:text-primary font-medium ${location === '/' ? 'text-primary' : ''}`}>
-                  Home
-                </a>
+              <Link href="/" className={`text-gray-900 hover:text-primary font-medium ${location === '/' ? 'text-primary' : ''}`}>
+                Home
               </Link>
               
               <DropdownMenu>
@@ -61,42 +59,34 @@ const Header = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48">
                   <DropdownMenuItem asChild>
-                    <Link href="/products">
-                      <a className="w-full">All Products</a>
+                    <Link href="/products" className="w-full">
+                      All Products
                     </Link>
                   </DropdownMenuItem>
                   {categories?.map(category => (
                     <DropdownMenuItem key={category.id} asChild>
-                      <Link href={`/products?category=${category.slug}`}>
-                        <a className="w-full">{category.name}</a>
+                      <Link href={`/products?category=${category.slug}`} className="w-full">
+                        {category.name}
                       </Link>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
               
-              <Link href="/calculator">
-                <a className={`text-gray-900 hover:text-primary font-medium ${location === '/calculator' ? 'text-primary' : ''}`}>
-                  Cost Calculator
-                </a>
+              <Link href="/calculator" className={`text-gray-900 hover:text-primary font-medium ${location === '/calculator' ? 'text-primary' : ''}`}>
+                Cost Calculator
               </Link>
               
-              <Link href="/lithophane">
-                <a className={`text-gray-900 hover:text-primary font-medium ${location === '/lithophane' ? 'text-primary' : ''}`}>
-                  Lithophanes
-                </a>
+              <Link href="/lithophane" className={`text-gray-900 hover:text-primary font-medium ${location === '/lithophane' ? 'text-primary' : ''}`}>
+                Lithophanes
               </Link>
               
-              <Link href="/about">
-                <a className={`text-gray-900 hover:text-primary font-medium ${location === '/about' ? 'text-primary' : ''}`}>
-                  About Us
-                </a>
+              <Link href="/about" className={`text-gray-900 hover:text-primary font-medium ${location === '/about' ? 'text-primary' : ''}`}>
+                About Us
               </Link>
               
-              <Link href="/contact">
-                <a className={`text-gray-900 hover:text-primary font-medium ${location === '/contact' ? 'text-primary' : ''}`}>
-                  Contact
-                </a>
+              <Link href="/contact" className={`text-gray-900 hover:text-primary font-medium ${location === '/contact' ? 'text-primary' : ''}`}>
+                Contact
               </Link>
             </nav>
           </div>
@@ -106,15 +96,13 @@ const Header = () => {
               <Search className="h-5 w-5" />
             </button>
             
-            <Link href="/cart">
-              <a className="ml-4 p-2 text-gray-700 hover:text-primary relative">
-                <ShoppingCart className="h-5 w-5" />
-                {cartItemCount > 0 && (
-                  <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-primary rounded-full">
-                    {cartItemCount}
-                  </span>
-                )}
-              </a>
+            <Link href="/cart" className="ml-4 p-2 text-gray-700 hover:text-primary relative">
+              <ShoppingCart className="h-5 w-5" />
+              {cartItemCount > 0 && (
+                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-primary rounded-full">
+                  {cartItemCount}
+                </span>
+              )}
             </Link>
             
             <button className="ml-4 p-2 text-gray-700 hover:text-primary hidden md:block">
@@ -135,35 +123,23 @@ const Header = () => {
       {/* Mobile menu */}
       <div className={`md:hidden ${mobileMenuOpen ? '' : 'hidden'}`} id="mobile-menu">
         <div className="pt-2 pb-3 space-y-1">
-          <Link href="/">
-            <a className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
-              Home
-            </a>
+          <Link href="/" className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
+            Home
           </Link>
-          <Link href="/products">
-            <a className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/products' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
-              Products
-            </a>
+          <Link href="/products" className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/products' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
+            Products
           </Link>
-          <Link href="/calculator">
-            <a className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/calculator' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
-              Cost Calculator
-            </a>
+          <Link href="/calculator" className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/calculator' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
+            Cost Calculator
           </Link>
-          <Link href="/lithophane">
-            <a className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/lithophane' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
-              Lithophanes
-            </a>
+          <Link href="/lithophane" className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/lithophane' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
+            Lithophanes
           </Link>
-          <Link href="/about">
-            <a className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/about' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
-              About Us
-            </a>
+          <Link href="/about" className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/about' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
+            About Us
           </Link>
-          <Link href="/contact">
-            <a className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/contact' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
-              Contact
-            </a>
+          <Link href="/contact" className={`block pl-3 pr-4 py-2 text-base font-medium text-gray-900 border-l-4 ${location === '/contact' ? 'border-primary' : 'border-transparent hover:bg-gray-50'}`}>
+            Contact
           </Link>
         </div>
       </div>

@@ -597,7 +597,7 @@ const Checkout = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tax (estimated)</span>
-                  <span>${calculateTaxes(calculateSubtotal()).toFixed(2)}</span>
+                  <span>€{calculateTaxes(calculateSubtotal()).toFixed(2)}</span>
                 </div>
               </div>
               
@@ -605,7 +605,7 @@ const Checkout = () => {
               
               <div className="flex justify-between font-bold text-lg">
                 <span>Total</span>
-                <span>${calculateTotal().toFixed(2)}</span>
+                <span>€{calculateTotal().toFixed(2)}</span>
               </div>
             </CardContent>
             <CardFooter className="flex-col space-y-4">
@@ -620,6 +620,10 @@ const Checkout = () => {
               <div className="flex items-center text-sm text-gray-600 space-x-2">
                 <CreditCard className="h-4 w-4" />
                 <span>We accept all major credit cards</span>
+              </div>
+              <div className="flex items-center text-sm text-gray-600 space-x-2">
+                <Package className="h-4 w-4" />
+                <span>Shipping from Greece to all European countries</span>
               </div>
             </CardFooter>
           </Card>
