@@ -35,23 +35,23 @@ const Footer = () => {
                 <h3 className="text-sm font-semibold text-gray-300 tracking-wider uppercase">Products</h3>
                 <ul className="mt-4 space-y-4">
                   <li>
-                    <Link href="/products?category=figurines">
-                      <a className="text-base text-gray-400 hover:text-white">Figurines</a>
+                    <Link href="/products?category=figurines" className="text-base text-gray-400 hover:text-white">
+                      Figurines
                     </Link>
                   </li>
                   <li>
-                    <Link href="/products?category=home-decor">
-                      <a className="text-base text-gray-400 hover:text-white">Home Decor</a>
+                    <Link href="/products?category=home-decor" className="text-base text-gray-400 hover:text-white">
+                      Home Decor
                     </Link>
                   </li>
                   <li>
-                    <Link href="/products?category=gadgets">
-                      <a className="text-base text-gray-400 hover:text-white">Gadgets</a>
+                    <Link href="/products?category=gadgets" className="text-base text-gray-400 hover:text-white">
+                      Gadgets
                     </Link>
                   </li>
                   <li>
-                    <Link href="/calculator">
-                      <a className="text-base text-gray-400 hover:text-white">Custom Orders</a>
+                    <Link href="/calculator" className="text-base text-gray-400 hover:text-white">
+                      Custom Orders
                     </Link>
                   </li>
                 </ul>
@@ -60,8 +60,8 @@ const Footer = () => {
                 <h3 className="text-sm font-semibold text-gray-300 tracking-wider uppercase">Support</h3>
                 <ul className="mt-4 space-y-4">
                   <li>
-                    <Link href="/calculator">
-                      <a className="text-base text-gray-400 hover:text-white">Pricing</a>
+                    <Link href="/calculator" className="text-base text-gray-400 hover:text-white">
+                      Pricing
                     </Link>
                   </li>
                   <li>
@@ -81,8 +81,8 @@ const Footer = () => {
                 <h3 className="text-sm font-semibold text-gray-300 tracking-wider uppercase">Company</h3>
                 <ul className="mt-4 space-y-4">
                   <li>
-                    <Link href="/about">
-                      <a className="text-base text-gray-400 hover:text-white">About</a>
+                    <Link href="/about" className="text-base text-gray-400 hover:text-white">
+                      About
                     </Link>
                   </li>
                   <li>
@@ -101,15 +101,15 @@ const Footer = () => {
                 <ul className="mt-4 space-y-4">
                   <li className="flex">
                     <MapPin className="text-gray-400 h-5 w-5 mt-1 mr-3" />
-                    <span className="text-gray-400">123 Printing Way<br />New York, NY 10001</span>
+                    <span className="text-gray-400">15 Ermou Street<br />Athens, 10563, Greece</span>
                   </li>
                   <li className="flex">
                     <Phone className="text-gray-400 h-5 w-5 mt-1 mr-3" />
-                    <span className="text-gray-400">(123) 456-7890</span>
+                    <span className="text-gray-400">+30 21 0123 4567</span>
                   </li>
                   <li className="flex">
                     <Mail className="text-gray-400 h-5 w-5 mt-1 mr-3" />
-                    <span className="text-gray-400">info@3dprintcraft.com</span>
+                    <span className="text-gray-400">info@3dprintcraft.gr</span>
                   </li>
                 </ul>
               </div>
