@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Νέα Παραγγελία</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background-color: #4a86e8;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    .content {
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    .order-details {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .customer-details {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .order-summary {
+      margin-top: 20px;
+      border-top: 1px solid #ddd;
+      padding-top: 15px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #777;
+    }
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #4a86e8;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .status-pending {
+      background-color: #ffc107;
+      color: #333;
+    }
+    .status-processing {
+      background-color: #17a2b8;
+      color: white;
+    }
+    .status-shipped {
+      background-color: #28a745;
+      color: white;
+    }
+    .status-delivered {
+      background-color: #4a86e8;
+      color: white;
+    }
+    .status-cancelled {
+      background-color: #dc3545;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Νέα Παραγγελία</h1>
+    </div>
+    
+    <div class="content">
+      <p>Έχετε λάβει μια νέα παραγγελία από το κατάστημα {{shopName}}.</p>
+      
+      <div class="order-details">
+        <h2>Στοιχεία Παραγγελίας</h2>
+        <p><strong>Αριθμός Παραγγελίας:</strong> #{{order.id}}</p>
+        <p><strong>Ημερομηνία:</strong> {{orderDate}}</p>
+        <p>
+          <strong>Κατάσταση:</strong> 
+          <span class="status status-{{order.status}}">
+            {{#if (eq order.status "pending")}}Σε αναμονή{{/if}}
+            {{#if (eq order.status "processing")}}Σε επεξεργασία{{/if}}
+            {{#if (eq order.status "shipped")}}Απεστάλη{{/if}}
+            {{#if (eq order.status "delivered")}}Παραδόθηκε{{/if}}
+            {{#if (eq order.status "cancelled")}}Ακυρώθηκε{{/if}}
+          </span>
+        </p>
+        
+        <h3>Προϊόντα</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Προϊόν</th>
+              <th>Ποσότητα</th>
+              <th>Τιμή</th>
+              <th>Σύνολο</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each order.items}}
+            <tr>
+              <td>{{name}}</td>
+              <td>{{quantity}}</td>
+              <td>{{price}}€</td>
+              <td>{{totalPrice}}€</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+        
+        <div class="order-summary">
+          <p><strong>Σύνολο:</strong> {{order.totalAmount}}€</p>
+          <p><strong>Τρόπος Πληρωμής:</strong> 
+            {{#if (eq order.paymentMethod "credit_card")}}Πιστωτική Κάρτα{{/if}}
+            {{#if (eq order.paymentMethod "paypal")}}PayPal{{/if}}
+            {{#if (eq order.paymentMethod "bank_transfer")}}Τραπεζική Κατάθεση{{/if}}
+            {{#if (eq order.paymentMethod "cash_on_delivery")}}Αντικαταβολή{{/if}}
+          </p>
+          <p><strong>Κατάσταση Πληρωμής:</strong> 
+            {{#if (eq order.paymentStatus "pending")}}Σε αναμονή{{/if}}
+            {{#if (eq order.paymentStatus "completed")}}Ολοκληρώθηκε{{/if}}
+            {{#if (eq order.paymentStatus "failed")}}Απέτυχε{{/if}}
+            {{#if (eq order.paymentStatus "refunded")}}Επιστράφηκε{{/if}}
+          </p>
+        </div>
+      </div>
+      
+      <div class="customer-details">
+        <h2>Στοιχεία Πελάτη</h2>
+        <p><strong>Ονοματεπώνυμο:</strong> {{user.firstName}} {{user.lastName}}</p>
+        <p><strong>Email:</strong> {{user.email}}</p>
+        <p><strong>Τηλέφωνο:</strong> {{user.phone}}</p>
+        
+        <h3>Διεύθυνση Αποστολής</h3>
+        <p>
+          {{order.shippingAddress.firstName}} {{order.shippingAddress.lastName}}<br>
+          {{order.shippingAddress.street}}<br>
+          {{order.shippingAddress.postalCode}}, {{order.shippingAddress.city}}<br>
+          {{order.shippingAddress.country}}<br>
+          Τηλέφωνο: {{order.shippingAddress.phone}}
+        </p>
+        
+        {{#if order.billingAddress}}
+        <h3>Διεύθυνση Τιμολόγησης</h3>
+        <p>
+          {{order.billingAddress.firstName}} {{order.billingAddress.lastName}}<br>
+          {{order.billingAddress.street}}<br>
+          {{order.billingAddress.postalCode}}, {{order.billingAddress.city}}<br>
+          {{order.billingAddress.country}}<br>
+          {{#if order.billingAddress.vatNumber}}ΑΦΜ: {{order.billingAddress.vatNumber}}{{/if}}
+        </p>
+        {{/if}}
+      </div>
+      
+      <p>Για να διαχειριστείτε την παραγγελία, παρακαλούμε κάντε κλικ στο παρακάτω κουμπί:</p>
+      
+      <p style="text-align: center;">
+        <a href="{{adminDashboardLink}}" class="button">Προβολή στο Admin Panel</a>
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p>© {{shopName}} - Αυτοματοποιημένο μήνυμα. Παρακαλούμε μην απαντήσετε σε αυτό το email.</p>
+    </div>
+  </div>
+</body>
+</html> 

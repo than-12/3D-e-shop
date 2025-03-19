@@ -1,0 +1,11 @@
+# Allow all web crawlers
+User-agent: *
+Allow: /
+
+# Απαγόρευση πρόσβασης σε ειδικούς καταλόγους
+Disallow: /admin/
+Disallow: /api/
+Disallow: /private/
+
+# Σύνδεσμος προς το sitemap
+Sitemap: https://3dprintcraft.gr/sitemap.xml 

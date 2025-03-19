@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Καλώς ήρθατε στο 3D PrintCraft!</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background-color: #4a86e8;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    .content {
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    .section {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #777;
+    }
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #4a86e8;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .feature {
+      display: flex;
+      margin-bottom: 15px;
+      align-items: flex-start;
+    }
+    .feature-icon {
+      width: 40px;
+      margin-right: 10px;
+      color: #4a86e8;
+      font-size: 24px;
+      text-align: center;
+    }
+    .feature-text {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Καλώς ήρθατε στο {{shopName}}!</h1>
+    </div>
+    
+    <div class="content">
+      <p>Αγαπητέ/ή {{user.firstName}} {{user.lastName}},</p>
+      
+      <p>Σας ευχαριστούμε για την εγγραφή σας στο <strong>{{shopName}}</strong>! Είμαστε χαρούμενοι που αποφασίσατε να γίνετε μέλος της κοινότητάς μας.</p>
+      
+      <div class="section">
+        <h2>Ο Λογαριασμός σας είναι έτοιμος!</h2>
+        <p>Μπορείτε τώρα να συνδεθείτε για να απολαύσετε όλα τα προνόμια που προσφέρει το {{shopName}}:</p>
+        
+        <div class="feature">
+          <div class="feature-icon">🛒</div>
+          <div class="feature-text">
+            <strong>Εύκολες Αγορές</strong>
+            <p>Αποθηκεύστε τα στοιχεία σας για ταχύτερες συναλλαγές στο μέλλον.</p>
+          </div>
+        </div>
+        
+        <div class="feature">
+          <div class="feature-icon">📦</div>
+          <div class="feature-text">
+            <strong>Παρακολούθηση Παραγγελιών</strong>
+            <p>Παρακολουθήστε τις παραγγελίες σας και δείτε το ιστορικό αγορών σας.</p>
+          </div>
+        </div>
+        
+        <div class="feature">
+          <div class="feature-icon">💰</div>
+          <div class="feature-text">
+            <strong>Αποκλειστικές Προσφορές</strong>
+            <p>Λάβετε πρόσβαση σε ειδικές προσφορές και εκπτώσεις για τα μέλη μας.</p>
+          </div>
+        </div>
+        
+        <div class="feature">
+          <div class="feature-icon">🔧</div>
+          <div class="feature-text">
+            <strong>Εξατομικευμένα 3D Αντικείμενα</strong>
+            <p>Φορτώστε και παραγγείλετε προσαρμοσμένα σχέδια 3D εκτύπωσης.</p>
+          </div>
+        </div>
+        
+        <p style="text-align: center; margin-top: 20px;">
+          <a href="{{loginLink}}" class="button">Σύνδεση στο Λογαριασμό σας</a>
+        </p>
+      </div>
+      
+      <div class="section">
+        <h2>Τι μπορείτε να κάνετε τώρα;</h2>
+        <ul>
+          <li>Εξερευνήστε τα προϊόντα μας και ανακαλύψτε τις δυνατότητες της 3D εκτύπωσης</li>
+          <li>Ενημερώστε το προφίλ σας με τις προτιμήσεις σας</li>
+          <li>Χρησιμοποιήστε τον υπολογιστή κόστους 3D εκτύπωσης για να λάβετε άμεσες προσφορές</li>
+          <li>Επικοινωνήστε μαζί μας αν έχετε ερωτήσεις ή ειδικές απαιτήσεις</li>
+        </ul>
+      </div>
+      
+      <p>Αν έχετε οποιαδήποτε απορία, μη διστάσετε να επικοινωνήσετε μαζί μας απαντώντας σε αυτό το email ή καλώντας μας στο {{shopPhone}}.</p>
+      
+      <p>Ανυπομονούμε να εξυπηρετήσουμε τις ανάγκες 3D εκτύπωσής σας!</p>
+      
+      <p>Με εκτίμηση,<br>Η ομάδα του {{shopName}}</p>
+    </div>
+    
+    <div class="footer">
+      <p>© {{shopName}} - Όλα τα δικαιώματα διατηρούνται.</p>
+      <p>Διεύθυνση: Παπάγου 10, 15234, Αθήνα | Τηλέφωνο: {{shopPhone}} | Email: {{shopEmail}}</p>
+      <p>Λάβατε αυτό το email επειδή εγγραφήκατε στο {{shopName}}.</p>
+    </div>
+  </div>
+</body>
+</html> 

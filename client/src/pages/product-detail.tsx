@@ -32,11 +32,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
+import { formatPrice } from "@/lib/utils";
 
 const ProductDetail = () => {
   const { slug } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t, currentLanguage } = useLanguage();
   const [quantity, setQuantity] = useState(1);
   
   const { data: product, isLoading, error } = useQuery<Product>({
@@ -47,13 +50,13 @@ const ProductDetail = () => {
   useEffect(() => {
     if (error) {
       toast({
-        title: "Product not found",
-        description: "The product you're looking for couldn't be found.",
+        title: t('products.product_not_found'),
+        description: t('products.product_not_found_description'),
         variant: "destructive",
       });
       setLocation("/products");
     }
-  }, [error, setLocation, toast]);
+  }, [error, setLocation, toast, t]);
   
   const incrementQuantity = () => {
     setQuantity(prev => prev + 1);
@@ -96,16 +99,16 @@ const ProductDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
       
       toast({
-        title: "Added to cart",
-        description: `${quantity} x ${product.name} has been added to your cart.`,
+        title: t('products.added_to_cart'),
+        description: `${quantity} x ${product.name} ${t('products.has_been_added_to_cart')}`,
       });
       
       // Reset quantity
       setQuantity(1);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to add product to cart.",
+        title: t('common.error'),
+        description: t('products.failed_to_add_to_cart'),
         variant: "destructive",
       });
     }
@@ -147,7 +150,7 @@ const ProductDetail = () => {
           onClick={() => setLocation("/products")}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Products
+          {t('products.back_to_products')}
         </Button>
       </div>
       
@@ -167,7 +170,7 @@ const ProductDetail = () => {
                     />
                     {product.featured && (
                       <div className="absolute top-4 right-4">
-                        <Badge className="bg-primary hover:bg-primary">Popular</Badge>
+                        <Badge className="bg-primary hover:bg-primary">{t('products.featured')}</Badge>
                       </div>
                     )}
                   </div>
@@ -182,7 +185,7 @@ const ProductDetail = () => {
                       <div className="aspect-square overflow-hidden rounded-lg">
                         <img 
                           src={img} 
-                          alt={`${product.name} - view ${idx + 2}`} 
+                          alt={`${product.name} - ${t('products.view')} ${idx + 2}`} 
                           className="object-cover w-full h-full" 
                         />
                       </div>
@@ -202,7 +205,7 @@ const ProductDetail = () => {
                 <button key={idx} className="border-2 border-transparent hover:border-primary rounded-md overflow-hidden">
                   <img 
                     src={img} 
-                    alt={`Thumbnail ${idx + 1}`} 
+                    alt={`${t('products.thumbnail')} ${idx + 1}`} 
                     className="aspect-square object-cover w-full" 
                   />
                 </button>
@@ -218,14 +221,16 @@ const ProductDetail = () => {
           <div className="mt-2 flex items-center">
             {renderRatingStars(product.rating || '0')}
             <span className="ml-2 text-gray-500">
-              {product.reviewCount || 0} reviews
+              {product.reviewCount || 0} {t('products.reviews')}
             </span>
           </div>
           
           <div className="mt-4">
-            <p className="text-2xl font-bold text-gray-900">${parseFloat(product.price.toString()).toFixed(2)}</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {formatPrice(Number(product.price), { locale: currentLanguage === 'el' ? 'el-GR' : 'en-GB' })}
+            </p>
             <p className="mt-1 text-sm text-gray-500">
-              Includes standard shipping and handling
+              {t('products.includes_shipping')}
             </p>
           </div>
           
@@ -238,7 +243,7 @@ const ProductDetail = () => {
               {product.material}
             </Badge>
             <Badge variant="outline" className={`${product.inStock ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'} hover:bg-green-100`}>
-              {product.inStock ? 'In Stock' : 'Low Stock'}
+              {product.inStock ? t('products.in_stock') : t('products.low_stock')}
             </Badge>
           </div>
           
@@ -273,7 +278,7 @@ const ProductDetail = () => {
                 disabled={!product.inStock}
               >
                 <ShoppingCart className="h-5 w-5 mr-2" />
-                Add to Cart
+                {t('common.add_to_cart')}
               </Button>
             </div>
             
@@ -282,21 +287,21 @@ const ProductDetail = () => {
               className="mt-4 w-full py-6 font-medium"
               onClick={() => {
                 toast({
-                  title: "Share Product",
-                  description: "Share option coming soon!",
+                  title: t('products.share_product'),
+                  description: t('products.share_coming_soon'),
                 });
               }}
             >
               <Share2 className="h-5 w-5 mr-2" />
-              Share Product
+              {t('products.share_product')}
             </Button>
           </div>
           
           <Card className="mt-8">
             <CardContent className="p-4">
               <div className="text-sm">
-                <p className="font-medium">Fast shipping</p>
-                <p className="text-gray-500">Usually ships within 24-48 hours</p>
+                <p className="font-medium">{t('products.fast_shipping')}</p>
+                <p className="text-gray-500">{t('products.ships_within')}</p>
               </div>
             </CardContent>
           </Card>
@@ -307,23 +312,23 @@ const ProductDetail = () => {
       <div className="mt-16">
         <Tabs defaultValue="details">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="details">Product Details</TabsTrigger>
-            <TabsTrigger value="specifications">Specifications</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            <TabsTrigger value="details">{t('products.product_details')}</TabsTrigger>
+            <TabsTrigger value="specifications">{t('products.specifications')}</TabsTrigger>
+            <TabsTrigger value="reviews">{t('products.reviews')}</TabsTrigger>
           </TabsList>
           
           <TabsContent value="details" className="mt-6">
             <Card>
               <CardContent className="p-6">
-                <h3 className="text-lg font-medium mb-4">About this product</h3>
+                <h3 className="text-lg font-medium mb-4">{t('products.about_this_product')}</h3>
                 <p className="text-gray-700">
                   {product.description}
                 </p>
                 <ul className="mt-4 space-y-2 list-disc list-inside text-gray-700">
-                  <li>Printed with high-quality {product.material} material</li>
-                  <li>Carefully finished and inspected for quality</li>
-                  <li>Custom colors available upon request</li>
-                  <li>Perfect for display, gifting, or practical use</li>
+                  <li>{t('products.printed_with')} {product.material} {t('products.material_suffix')}</li>
+                  <li>{t('products.carefully_finished')}</li>
+                  <li>{t('products.custom_colors')}</li>
+                  <li>{t('products.perfect_for')}</li>
                 </ul>
               </CardContent>
             </Card>
@@ -332,34 +337,34 @@ const ProductDetail = () => {
           <TabsContent value="specifications" className="mt-6">
             <Card>
               <CardContent className="p-6">
-                <h3 className="text-lg font-medium mb-4">Product Specifications</h3>
+                <h3 className="text-lg font-medium mb-4">{t('products.product_specifications')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium text-gray-900">Material</h4>
+                      <h4 className="font-medium text-gray-900">{t('products.material')}</h4>
                       <p className="text-gray-700">{product.material}</p>
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900">Dimensions</h4>
-                      <p className="text-gray-700">Varies by design (see product details)</p>
+                      <h4 className="font-medium text-gray-900">{t('products.dimensions')}</h4>
+                      <p className="text-gray-700">{t('products.varies_by_design')}</p>
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900">Weight</h4>
-                      <p className="text-gray-700">Varies by design and infill percentage</p>
+                      <h4 className="font-medium text-gray-900">{t('products.weight')}</h4>
+                      <p className="text-gray-700">{t('products.varies_by_design_and_infill')}</p>
                     </div>
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium text-gray-900">Print Quality</h4>
-                      <p className="text-gray-700">0.1mm - 0.2mm layer height (fine detail)</p>
+                      <h4 className="font-medium text-gray-900">{t('products.print_quality')}</h4>
+                      <p className="text-gray-700">{t('products.layer_height')}</p>
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900">Infill</h4>
-                      <p className="text-gray-700">15-30% standard (customizable)</p>
+                      <h4 className="font-medium text-gray-900">{t('products.infill')}</h4>
+                      <p className="text-gray-700">{t('products.infill_percentage')}</p>
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900">Finish</h4>
-                      <p className="text-gray-700">Light sanding and quality check</p>
+                      <h4 className="font-medium text-gray-900">{t('products.finish')}</h4>
+                      <p className="text-gray-700">{t('products.finish_description')}</p>
                     </div>
                   </div>
                 </div>
@@ -371,42 +376,41 @@ const ProductDetail = () => {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Customer Reviews</h3>
+                  <h3 className="text-lg font-medium">{t('products.customer_reviews')}</h3>
                   <div className="flex items-center">
                     {renderRatingStars(product.rating || '0')}
                     <span className="ml-2 text-lg font-medium">
-                      {parseFloat(product.rating || '0').toFixed(1)} out of 5
+                      {parseFloat(product.rating || '0').toFixed(1)} {t('products.out_of_5')}
                     </span>
                   </div>
                 </div>
                 
                 <p className="text-gray-500 mt-2">
-                  Based on {product.reviewCount || 0} reviews
+                  {t('products.based_on')} {product.reviewCount || 0} {t('products.reviews')}
                 </p>
                 
                 {product.reviewCount && product.reviewCount > 0 ? (
                   <div className="mt-6 space-y-6">
                     <div className="border-t border-gray-200 pt-6">
                       <div className="flex items-center mb-1">
-                        <div className="font-medium mr-2">Happy Customer</div>
-                        <div className="text-sm text-gray-500">Verified Purchase</div>
+                        <div className="font-medium mr-2">{t('products.happy_customer')}</div>
+                        <div className="text-sm text-gray-500">{t('products.verified_purchase')}</div>
                       </div>
                       <div className="flex items-center mb-2">
                         {[...Array(5)].map((_, i) => (
                           <Star key={i} className="h-4 w-4 text-amber-500 fill-current" />
                         ))}
-                        <span className="ml-2 text-sm text-gray-500">2 months ago</span>
+                        <span className="ml-2 text-sm text-gray-500">{t('products.months_ago', { count: 2 })}</span>
                       </div>
                       <p className="text-gray-700">
-                        Excellent quality and fast shipping! The detail on this 3D print is amazing.
-                        Will definitely order more items in the future.
+                        {t('products.review_text_1')}
                       </p>
                     </div>
                     
                     <div className="border-t border-gray-200 pt-6">
                       <div className="flex items-center mb-1">
-                        <div className="font-medium mr-2">Craft Enthusiast</div>
-                        <div className="text-sm text-gray-500">Verified Purchase</div>
+                        <div className="font-medium mr-2">{t('products.craft_enthusiast')}</div>
+                        <div className="text-sm text-gray-500">{t('products.verified_purchase')}</div>
                       </div>
                       <div className="flex items-center mb-2">
                         {[...Array(4)].map((_, i) => (
@@ -415,25 +419,24 @@ const ProductDetail = () => {
                         {[...Array(1)].map((_, i) => (
                           <Star key={i} className="h-4 w-4 text-amber-500" />
                         ))}
-                        <span className="ml-2 text-sm text-gray-500">3 months ago</span>
+                        <span className="ml-2 text-sm text-gray-500">{t('products.months_ago', { count: 3 })}</span>
                       </div>
                       <p className="text-gray-700">
-                        Good product overall. The print quality is great but there were a few small 
-                        imperfections on one side. Still, I'm quite happy with my purchase.
+                        {t('products.review_text_2')}
                       </p>
                     </div>
                     
                     <div className="text-center mt-8">
                       <Button variant="outline">
-                        Load More Reviews
+                        {t('products.load_more_reviews')}
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <p className="text-gray-500">No reviews yet for this product.</p>
+                    <p className="text-gray-500">{t('products.no_reviews_yet')}</p>
                     <Button className="mt-4">
-                      Be the First to Review
+                      {t('products.be_first_to_review')}
                     </Button>
                   </div>
                 )}

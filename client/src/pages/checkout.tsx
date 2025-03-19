@@ -1,25 +1,21 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { 
-  CreditCard, 
-  Package, 
-  ShieldCheck, 
-  ArrowLeft,
-  CheckCircle
-} from "lucide-react";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
+import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -30,64 +26,75 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useLanguage } from "@/hooks/use-language";
 
 const formSchema = z.object({
-  fullName: z.string().min(3, { message: "Full name is required" }),
-  email: z.string().email({ message: "Invalid email address" }),
-  phone: z.string().min(10, { message: "Valid phone number is required" }),
-  address: z.string().min(5, { message: "Address is required" }),
-  city: z.string().min(2, { message: "City is required" }),
-  state: z.string().min(2, { message: "State is required" }),
-  zipCode: z.string().min(5, { message: "Valid ZIP code is required" }),
-  country: z.string().min(2, { message: "Country is required" }),
-  
-  // Payment details
-  cardName: z.string().min(3, { message: "Name on card is required" }),
-  cardNumber: z.string().min(13, { message: "Valid card number is required" })
-    .max(19, { message: "Card number is too long" })
-    .refine((val) => /^[0-9]+$/.test(val), { 
-      message: "Card number can only contain digits" 
-    }),
-  expiryDate: z.string().min(5, { message: "Valid expiry date is required (MM/YY)" })
-    .refine((val) => /^(0[1-9]|1[0-2])\/\d{2}$/.test(val), {
-      message: "Expiry date should be in MM/YY format"
-    }),
-  cvv: z.string().min(3, { message: "Valid CVV is required" })
-    .max(4, { message: "CVV is too long" })
-    .refine((val) => /^[0-9]+$/.test(val), { 
-      message: "CVV can only contain digits" 
-    }),
-  
-  saveInfo: z.boolean().default(false),
-  marketing: z.boolean().default(false),
-  shippingNotes: z.string().optional(),
+  fullName: z.string().min(2, {
+    message: "Full name must be at least 2 characters.",
+  }),
+  email: z.string().email({
+    message: "Please enter a valid email address.",
+  }),
+  phone: z.string().min(10, {
+    message: "Phone number must be at least 10 digits.",
+  }),
+  address: z.string().min(5, {
+    message: "Address must be at least 5 characters.",
+  }),
+  city: z.string().min(2, {
+    message: "City must be at least 2 characters.",
+  }),
+  state: z.string().min(2, {
+    message: "State/Province must be at least 2 characters.",
+  }),
+  zipCode: z.string().min(5, {
+    message: "ZIP/Postal code must be at least 5 characters.",
+  }),
+  country: z.string().min(2, {
+    message: "Country must be at least 2 characters.",
+  }),
+  paymentMethod: z.enum(["credit_card", "paypal"]),
+  cardName: z.string().min(2, {
+    message: "Name on card must be at least 2 characters.",
+  }).optional(),
+  cardNumber: z.string().regex(/^[0-9]{16}$/, {
+    message: "Card number must be 16 digits.",
+  }).optional(),
+  expiryDate: z.string().regex(/^(0[1-9]|1[0-2])\/[0-9]{2}$/, {
+    message: "Expiry date must be in MM/YY format.",
+  }).optional(),
+  cvv: z.string().regex(/^[0-9]{3,4}$/, {
+    message: "CVV must be 3 or 4 digits.",
+  }).optional(),
+  saveInfo: z.boolean().default(false).optional(),
+  marketingEmails: z.boolean().default(false).optional(),
+  specialInstructions: z.string().optional(),
 });
 
-type CheckoutFormValues = z.infer<typeof formSchema>;
-
 const Checkout = () => {
+  const { t } = useLanguage();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [orderComplete, setOrderComplete] = useState(false);
+  const formRef = useRef(null);
   
-  const { data: cartItems, isLoading } = useQuery({
+  const { data: cartItems = [], isLoading, error } = useQuery({
     queryKey: ['/api/cart'],
   });
   
-  const form = useForm<CheckoutFormValues>({
+  console.log("Cart data in checkout component:", cartItems);
+  
+  const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       fullName: "",
@@ -97,14 +104,15 @@ const Checkout = () => {
       city: "",
       state: "",
       zipCode: "",
-      country: "GR",
+      country: "",
+      paymentMethod: "credit_card",
       cardName: "",
       cardNumber: "",
       expiryDate: "",
       cvv: "",
       saveInfo: false,
-      marketing: false,
-      shippingNotes: "",
+      marketingEmails: false,
+      specialInstructions: ""
     },
   });
   
@@ -117,15 +125,14 @@ const Checkout = () => {
     }, 0);
   };
   
-  const calculateTaxes = (subtotal: number) => {
+  const calculateTaxes = (subtotal) => {
     // Example tax rate of 7%
     return subtotal * 0.07; 
   };
   
-  const calculateShipping = (subtotal: number) => {
-    // Free shipping over €100, otherwise €12.95
-    // Based in Greece, serving all of Europe
-    return subtotal > 100 ? 0 : 12.95;
+  const calculateShipping = (subtotal) => {
+    // Free shipping over $75, otherwise $8.95
+    return subtotal > 75 ? 0 : 8.95;
   };
   
   const calculateTotal = () => {
@@ -136,60 +143,37 @@ const Checkout = () => {
     return subtotal + taxes + shipping;
   };
   
-  const onSubmit = async (values: CheckoutFormValues) => {
+  const onSubmit = async (data) => {
     if (!cartItems || cartItems.length === 0) {
       toast({
-        title: "Empty Cart",
-        description: "Your cart is empty. Please add items before checkout.",
+        title: t('checkout.empty_cart'),
+        description: t('checkout.add_items_before_checkout'),
         variant: "destructive",
       });
-      setLocation("/products");
       return;
     }
     
+    console.log("Form data:", data);
     setIsSubmitting(true);
     
-    try {
-      // Create order
-      const orderItems = cartItems.map(item => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-        price: item.product.price,
-      }));
+    // Simulate API call with timeout
+    setTimeout(() => {
+      // Success scenario
+      setOrderComplete(true);
+      setIsSubmitting(false);
       
-      const shippingAddress = `${values.address}, ${values.city}, ${values.state} ${values.zipCode}, ${values.country}`;
-      
-      await apiRequest('POST', '/api/orders', {
-        order: {
-          totalAmount: calculateTotal().toString(),
-          shippingAddress,
-          contactEmail: values.email,
-          contactPhone: values.phone,
-          status: 'pending',
-        },
-        items: orderItems,
-      });
-      
-      // Clear cart
-      await apiRequest('DELETE', '/api/cart', undefined);
-      
-      // Invalidate cart query
+      // Clear cart after successful order
+      apiRequest('DELETE', '/api/cart', undefined);
       queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
       
-      // Show success message
-      setCompleted(true);
+      // Scroll to top to show order confirmation
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       
-      // Reset form
-      form.reset();
-    } catch (error) {
       toast({
-        title: "Checkout Error",
-        description: "There was a problem processing your order. Please try again.",
-        variant: "destructive",
+        title: t('checkout.order_placed'),
+        description: t('checkout.order_success_message'),
       });
-    } finally {
-      setIsSubmitting(false);
-    }
+    }, 1500);
   };
   
   if (isLoading) {
@@ -210,33 +194,39 @@ const Checkout = () => {
     );
   }
   
-  if (completed) {
+  if (error) {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <Card className="text-center">
-          <CardHeader>
-            <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
-            <CardTitle className="text-2xl">Order Confirmed!</CardTitle>
-            <CardDescription>Thank you for your purchase</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p>
-              Your order has been received and is being processed. You will receive a confirmation 
-              email shortly with your order details.
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <Card className="text-center py-12">
+          <CardContent>
+            <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('checkout.error_loading')}</h2>
+            <p className="text-gray-600 mb-6">
+              {t('checkout.error_message')}
             </p>
-            <div className="bg-gray-50 p-4 rounded-md">
-              <p className="font-medium">Order Number: ORD-{Math.floor(Math.random() * 10000)}</p>
-              <p className="text-sm text-gray-500">Please save this for your reference</p>
-            </div>
+            <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/cart'] })}>
+              {t('common.retry')}
+            </Button>
           </CardContent>
-          <CardFooter className="flex justify-center space-x-4">
-            <Button variant="outline" onClick={() => setLocation("/")}>
-              Return to Home
+        </Card>
+      </div>
+    );
+  }
+  
+  if (orderComplete) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <Card className="text-center py-12">
+          <CardContent>
+            <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('checkout.thank_you')}</h2>
+            <p className="text-gray-600 mb-6">
+              {t('checkout.order_confirmation_message')}
+            </p>
+            <Button onClick={() => setLocation("/")}>
+              {t('checkout.continue_shopping')}
             </Button>
-            <Button onClick={() => setLocation("/products")}>
-              Continue Shopping
-            </Button>
-          </CardFooter>
+          </CardContent>
         </Card>
       </div>
     );
@@ -245,23 +235,40 @@ const Checkout = () => {
   const isEmpty = !cartItems || cartItems.length === 0;
   
   if (isEmpty) {
-    setLocation("/cart");
-    return null;
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <Card className="text-center py-12">
+          <CardContent>
+            <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('checkout.empty_cart')}</h2>
+            <p className="text-gray-600 mb-6">
+              {t('checkout.add_items_before_checkout')}
+            </p>
+            <Button onClick={() => setLocation("/products")}>
+              {t('checkout.browse_products')}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
   
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-8">
         <Button 
-          variant="ghost" 
+          variant="outline" 
           size="sm" 
-          className="pl-0" 
           onClick={() => setLocation("/cart")}
+          className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Cart
+          {t('checkout.back_to_cart')}
         </Button>
-        <h1 className="text-3xl font-bold text-gray-900 mt-4">Checkout</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{t('checkout.title')}</h1>
+        <p className="text-gray-500 mt-1">
+          {t('checkout.description')}
+        </p>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -269,166 +276,36 @@ const Checkout = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Shipping Information</CardTitle>
+              <CardTitle>{t('checkout.shipping_info')}</CardTitle>
               <CardDescription>
-                Enter your details for shipping your order
+                {t('checkout.shipping_description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="fullName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Full Name</FormLabel>
+                          <FormLabel>{t('checkout.full_name')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="John Doe" {...field} />
+                            <Input placeholder={t('checkout.full_name_placeholder')} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
                     <FormField
                       control={form.control}
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email</FormLabel>
+                          <FormLabel>{t('checkout.email')}</FormLabel>
                           <FormControl>
-                            <Input type="email" placeholder="john@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="(123) 456-7890" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>Address</FormLabel>
-                          <FormControl>
-                            <Input placeholder="123 Main St, Apt 4B" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <Input placeholder="New York" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="state"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>State</FormLabel>
-                            <FormControl>
-                              <Input placeholder="NY" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="zipCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>ZIP Code</FormLabel>
-                            <FormControl>
-                              <Input placeholder="10001" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <FormField
-                      control={form.control}
-                      name="country"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Country</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a country" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="GR">Greece</SelectItem>
-                              <SelectItem value="DE">Germany</SelectItem>
-                              <SelectItem value="FR">France</SelectItem>
-                              <SelectItem value="IT">Italy</SelectItem>
-                              <SelectItem value="ES">Spain</SelectItem>
-                              <SelectItem value="PT">Portugal</SelectItem>
-                              <SelectItem value="BE">Belgium</SelectItem>
-                              <SelectItem value="NL">Netherlands</SelectItem>
-                              <SelectItem value="AT">Austria</SelectItem>
-                              <SelectItem value="GB">United Kingdom</SelectItem>
-                              <SelectItem value="IE">Ireland</SelectItem>
-                              <SelectItem value="DK">Denmark</SelectItem>
-                              <SelectItem value="SE">Sweden</SelectItem>
-                              <SelectItem value="FI">Finland</SelectItem>
-                              <SelectItem value="US">United States</SelectItem>
-                              <SelectItem value="CA">Canada</SelectItem>
-                              <SelectItem value="AU">Australia</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="shippingNotes"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>Shipping Notes (optional)</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Special delivery instructions" 
-                              {...field} 
-                            />
+                            <Input placeholder={t('checkout.email_placeholder')} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -436,19 +313,160 @@ const Checkout = () => {
                     />
                   </div>
                   
-                  <Separator />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('checkout.phone')}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={t('checkout.phone_placeholder')} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('checkout.address')}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={t('checkout.address_placeholder')} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('checkout.city')}</FormLabel>
+                          <FormControl>
+                            <Input placeholder={t('checkout.city_placeholder')} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="state"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('checkout.state')}</FormLabel>
+                          <FormControl>
+                            <Input placeholder={t('checkout.state_placeholder')} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="zipCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('checkout.zip_code')}</FormLabel>
+                          <FormControl>
+                            <Input placeholder={t('checkout.zip_code_placeholder')} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="country"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('checkout.country')}</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t('checkout.select_country')} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="greece">Ελλάδα</SelectItem>
+                              <SelectItem value="cyprus">Κύπρος</SelectItem>
+                              <SelectItem value="usa">United States</SelectItem>
+                              <SelectItem value="uk">United Kingdom</SelectItem>
+                              <SelectItem value="canada">Canada</SelectItem>
+                              <SelectItem value="australia">Australia</SelectItem>
+                              <SelectItem value="germany">Germany</SelectItem>
+                              <SelectItem value="france">France</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <Separator className="my-4" />
                   
                   <div>
-                    <h3 className="text-lg font-medium mb-4">Payment Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <h3 className="text-lg font-semibold mb-4">{t('checkout.payment_info')}</h3>
+                    
+                    <FormField
+                      control={form.control}
+                      name="paymentMethod"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <FormLabel>{t('checkout.payment_method')}</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-1"
+                            >
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="credit_card" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  {t('checkout.credit_card')}
+                                </FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="paypal" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  PayPal
+                                </FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  {form.watch("paymentMethod") === "credit_card" && (
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="cardName"
                         render={({ field }) => (
-                          <FormItem className="md:col-span-2">
-                            <FormLabel>Name on Card</FormLabel>
+                          <FormItem>
+                            <FormLabel>{t('checkout.card_name')}</FormLabel>
                             <FormControl>
-                              <Input placeholder="John Doe" {...field} />
+                              <Input placeholder={t('checkout.card_name_placeholder')} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -459,98 +477,142 @@ const Checkout = () => {
                         control={form.control}
                         name="cardNumber"
                         render={({ field }) => (
-                          <FormItem className="md:col-span-2">
-                            <FormLabel>Card Number</FormLabel>
+                          <FormItem>
+                            <FormLabel>{t('checkout.card_number')}</FormLabel>
                             <FormControl>
-                              <Input placeholder="1234 5678 9012 3456" {...field} />
+                              <Input 
+                                placeholder="1234 5678 9012 3456" 
+                                {...field} 
+                                maxLength={16}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="expiryDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('checkout.expiry_date')}</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="MM/YY" 
+                                  {...field} 
+                                  maxLength={5}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="cvv"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('checkout.cvv')}</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="123" 
+                                  {...field} 
+                                  maxLength={4}
+                                  type="password"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <Separator className="my-4" />
+                  
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="specialInstructions"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('checkout.special_instructions')}</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder={t('checkout.special_instructions_placeholder')} 
+                              className="min-h-[100px]" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t('checkout.special_instructions_description')}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="space-y-2">
                       <FormField
                         control={form.control}
-                        name="expiryDate"
+                        name="saveInfo"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Expiry Date</FormLabel>
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                             <FormControl>
-                              <Input placeholder="MM/YY" {...field} />
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>
+                                {t('checkout.save_info')}
+                              </FormLabel>
+                              <FormDescription>
+                                {t('checkout.save_info_description')}
+                              </FormDescription>
+                            </div>
                           </FormItem>
                         )}
                       />
                       
                       <FormField
                         control={form.control}
-                        name="cvv"
+                        name="marketingEmails"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CVV</FormLabel>
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                             <FormControl>
-                              <Input placeholder="123" {...field} />
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
                             </FormControl>
-                            <FormDescription>
-                              3 or 4 digit code on the back of your card
-                            </FormDescription>
-                            <FormMessage />
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>
+                                {t('checkout.marketing_emails')}
+                              </FormLabel>
+                              <FormDescription>
+                                {t('checkout.marketing_emails_description')}
+                              </FormDescription>
+                            </div>
                           </FormItem>
                         )}
                       />
                     </div>
                   </div>
                   
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="saveInfo"
-                      render={({ field }) => (
-                        <FormItem className="flex items-start space-x-2">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Save this information for next time</FormLabel>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="marketing"
-                      render={({ field }) => (
-                        <FormItem className="flex items-start space-x-2">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>
-                              Email me about new products, offers, and 3D printing tips
-                            </FormLabel>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      className="w-full md:w-auto"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? "Processing..." : "Place Order"}
-                    </Button>
-                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? t('checkout.processing') : t('checkout.place_order')}
+                    {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
+                  </Button>
                 </form>
               </Form>
             </CardContent>
@@ -559,71 +621,72 @@ const Checkout = () => {
         
         {/* Order Summary */}
         <div>
-          <Card className="sticky top-6">
+          <Card>
             <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
+              <CardTitle>{t('checkout.order_summary')}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                {cartItems?.map((item) => (
-                  <div key={item.id} className="flex justify-between">
-                    <div className="flex-1">
-                      <span className="text-gray-900 font-medium">
-                        {item.quantity} x {item.product.name}
-                      </span>
+            <CardContent>
+              <ScrollArea className="max-h-[300px] pr-4">
+                <div className="space-y-4">
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="flex justify-between">
+                      <div className="flex items-center">
+                        <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 mr-3">
+                          {item.product.images && item.product.images[0] && (
+                            <img 
+                              src={item.product.images[0]} 
+                              alt={item.product.name} 
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium">{item.product.name}</p>
+                          <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                        </div>
+                      </div>
+                      <p className="font-medium">{t('common.currency')}{parseFloat(item.product.price) * item.quantity}</p>
                     </div>
-                    <div className="text-right">
-                      €{(parseFloat(item.product.price.toString()) * item.quantity).toFixed(2)}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
               
-              <Separator />
+              <Separator className="my-4" />
               
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span>€{calculateSubtotal().toFixed(2)}</span>
+                  <span className="text-gray-600">{t('common.subtotal')}</span>
+                  <span>{t('common.currency')}{calculateSubtotal().toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Shipping</span>
+                  <span className="text-gray-600">{t('common.shipping')}</span>
                   <span>
                     {calculateShipping(calculateSubtotal()) === 0 
-                      ? 'Free' 
-                      : `€${calculateShipping(calculateSubtotal()).toFixed(2)}`
+                      ? t('checkout.free_shipping') 
+                      : `${t('common.currency')}${calculateShipping(calculateSubtotal()).toFixed(2)}`
                     }
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Tax (estimated)</span>
-                  <span>€{calculateTaxes(calculateSubtotal()).toFixed(2)}</span>
+                  <span className="text-gray-600">{t('checkout.estimated_tax')}</span>
+                  <span>{t('common.currency')}{calculateTaxes(calculateSubtotal()).toFixed(2)}</span>
+                </div>
+                <Separator className="my-2" />
+                <div className="flex justify-between font-bold text-lg">
+                  <span>{t('common.total')}</span>
+                  <span>{t('common.currency')}{calculateTotal().toFixed(2)}</span>
                 </div>
               </div>
-              
-              <Separator />
-              
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total</span>
-                <span>€{calculateTotal().toFixed(2)}</span>
-              </div>
             </CardContent>
-            <CardFooter className="flex-col space-y-4">
-              <div className="flex items-center text-sm text-gray-600 space-x-2">
-                <Package className="h-4 w-4" />
-                <span>Free shipping on orders over €100</span>
+            <CardFooter className="flex flex-col space-y-4 items-start">
+              <div className="text-sm text-gray-600">
+                <p className="mb-1 font-medium">{t('checkout.shipping_policy')}</p>
+                <p>{t('checkout.free_shipping_policy')}</p>
               </div>
-              <div className="flex items-center text-sm text-gray-600 space-x-2">
-                <ShieldCheck className="h-4 w-4" />
-                <span>Secure payment processing</span>
-              </div>
-              <div className="flex items-center text-sm text-gray-600 space-x-2">
-                <CreditCard className="h-4 w-4" />
-                <span>We accept all major credit cards</span>
-              </div>
-              <div className="flex items-center text-sm text-gray-600 space-x-2">
-                <Package className="h-4 w-4" />
-                <span>Shipping from Greece to all European countries</span>
+              
+              <div className="text-sm text-gray-600">
+                <p className="mb-1 font-medium">{t('checkout.secure_payment')}</p>
+                <p>{t('checkout.payment_security_message')}</p>
               </div>
             </CardFooter>
           </Card>

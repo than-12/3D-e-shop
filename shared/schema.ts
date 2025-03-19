@@ -24,6 +24,7 @@ export const categories = pgTable("categories", {
   description: text("description"),
   imageUrl: text("image_url"),
   icon: text("icon"),
+  parentId: integer("parent_id"),
 });
 
 // Products
@@ -48,8 +49,10 @@ export const products = pgTable("products", {
 export const cartItems = pgTable("cart_items", {
   id: serial("id").primaryKey(),
   userId: integer("user_id"),
-  productId: integer("product_id").notNull(),
+  productId: integer("product_id"),
+  customPrintId: integer("custom_print_id"),
   quantity: integer("quantity").notNull().default(1),
+  photoUrl: text("photo_url"),
   addedAt: timestamp("added_at").defaultNow(),
 });
 
@@ -155,6 +158,7 @@ export const insertCategorySchema = createInsertSchema(categories).pick({
   description: true,
   imageUrl: true,
   icon: true,
+  parentId: true,
 });
 
 export const insertProductSchema = createInsertSchema(products).pick({
@@ -170,10 +174,34 @@ export const insertProductSchema = createInsertSchema(products).pick({
   featured: true,
 });
 
-export const insertCartItemSchema = createInsertSchema(cartItems).pick({
-  userId: true,
-  productId: true,
-  quantity: true,
+export const insertCartItemSchema = z.object({
+  userId: z.number().nullable().optional(),
+  productId: z.number().nullable().optional(),
+  customPrintId: z.number().nullable().optional(),
+  quantity: z.number().min(1).default(1),
+  photoUrl: z.string().optional()
+}).superRefine((data, ctx) => {
+  if (
+    (data.productId === undefined || data.productId === null) && 
+    (data.customPrintId === undefined || data.customPrintId === null)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Either productId or customPrintId must be provided",
+      path: ["productId", "customPrintId"]
+    });
+  }
+  
+  if (
+    (data.productId !== undefined && data.productId !== null) && 
+    (data.customPrintId !== undefined && data.customPrintId !== null)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Both productId and customPrintId cannot be provided simultaneously",
+      path: ["productId", "customPrintId"]
+    });
+  }
 });
 
 export const insertOrderSchema = createInsertSchema(orders).pick({

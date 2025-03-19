@@ -1,0 +1,36 @@
+{
+  "name": "3d-print-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/material": "^6.4.8",
+    "@radix-ui/react-navigation-menu": "^1.1.4",
+    "@tanstack/react-query": "^5.22.1",
+    "axios": "^1.6.7",
+    "class-variance-authority": "^0.7.0",
+    "lucide-react": "^0.331.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-helmet-async": "^2.0.4",
+    "react-router-dom": "^6.30.0",
+    "wouter": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "5.6.3",
+    "vite": "^6.2.2"
+  }
+}

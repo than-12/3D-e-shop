@@ -1,6 +1,5 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
 import { z } from "zod";
 import {
   insertCartItemSchema,
@@ -9,8 +8,44 @@ import {
   insertLithophaneSchema,
   insertOrderSchema,
   insertOrderItemSchema,
-  insertUserSchema
+  insertUserSchema,
+  insertProductSchema,
+  type CustomPrint,
+  type Lithophane
 } from "@shared/schema";
+import bcrypt from 'bcrypt';
+import { Router } from "express";
+import { DrizzleStorage } from "./db/storage";
+import { Session } from 'express-session';
+
+declare module 'express' {
+  interface Request {
+    session?: {
+      userId?: number;
+    };
+  }
+}
+
+declare module 'express-session' {
+  interface SessionData {
+    userId?: number;
+  }
+}
+
+interface RequestWithSession extends Request {
+  session: Session & {
+    userId?: number;
+  };
+}
+
+const router = Router();
+const storage = new DrizzleStorage();
+
+declare module 'bcrypt' {
+  export function compare(password: string, hash: string): Promise<boolean>;
+  export function hash(password: string, salt: number): Promise<string>;
+  export function genSalt(rounds: number): Promise<string>;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API routes
@@ -29,26 +64,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get products
   app.get('/api/products', async (req: Request, res: Response) => {
     try {
-      const categorySlug = req.query.category as string | undefined;
-      const featured = req.query.featured === 'true';
-      
-      let products;
-      if (categorySlug) {
-        const category = await storage.getCategoryBySlug(categorySlug);
-        if (category) {
-          products = await storage.getProductsByCategory(category.id);
-        } else {
-          return res.status(404).json({ message: 'Category not found' });
+      // Προσωρινά δοκιμαστικά δεδομένα για το endpoint products
+      const products = [
+        {
+          id: 1,
+          name: "Dragon Figurine",
+          slug: "dragon-figurine",
+          description: "Detailed fantasy dragon model, perfect for collectors and tabletop gaming.",
+          price: "29.99",
+          imageUrl: "https://images.unsplash.com/photo-1559563362-c667ba5f5480?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&h=500&q=80",
+          images: ["https://images.unsplash.com/photo-1559563362-c667ba5f5480?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&h=500&q=80"],
+          categoryId: 1,
+          material: "PLA",
+          inStock: true,
+          featured: true,
+          rating: "4.7",
+          reviewCount: 42
+        },
+        {
+          id: 2,
+          name: "Adjustable Phone Stand",
+          slug: "adjustable-phone-stand",
+          description: "Multi-angle smartphone holder, suitable for all devices up to 7 inches.",
+          price: "14.99",
+          imageUrl: "https://images.unsplash.com/photo-1576086135878-bd7e7d326dc0?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&h=500&q=80",
+          images: ["https://images.unsplash.com/photo-1576086135878-bd7e7d326dc0?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&h=500&q=80"],
+          categoryId: 3,
+          material: "ABS",
+          inStock: true,
+          featured: true,
+          rating: "5.0",
+          reviewCount: 87
         }
-      } else if (featured) {
-        products = await storage.getFeaturedProducts();
-      } else {
-        products = await storage.getProducts();
-      }
+      ];
       
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: `Failed to fetch products: ${error}` });
+    }
+  });
+
+  // Create product
+  app.post('/api/products', async (req: Request, res: Response) => {
+    try {
+      const productData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct({
+        ...productData,
+        description: productData.description || null,
+        imageUrl: productData.imageUrl || null,
+        images: productData.images || null,
+        categoryId: productData.categoryId || null,
+        material: productData.material || null,
+        inStock: productData.inStock || true,
+        featured: productData.featured || false,
+        rating: "0",
+        reviewCount: 0,
+        createdAt: new Date()
+      });
+      res.status(201).json(product);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid product data', errors: error.errors });
+      } else {
+        res.status(500).json({ message: `Failed to create product: ${error}` });
+      }
     }
   });
 
@@ -67,36 +146,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cart endpoints
-  // Get cart items
-  app.get('/api/cart', async (req: Request, res: Response) => {
+  // Get cart
+  app.get('/api/cart', async (_req: Request, res: Response) => {
     try {
-      const cartItems = await storage.getCartItems();
-      const itemsWithProducts = await Promise.all(
-        cartItems.map(async (item) => {
-          const itemWithProduct = await storage.getCartItemWithProduct(item.id);
-          return itemWithProduct;
-        })
-      );
+      // Προσωρινά δοκιμαστικά δεδομένα για το cart
+      const cart = {
+        items: [],
+        total: "0.00"
+      };
       
-      // Filter out any undefined items
-      const validItems = itemsWithProducts.filter(Boolean);
-      
-      res.json(validItems);
+      res.json(cart);
     } catch (error) {
       res.status(500).json({ message: `Failed to fetch cart: ${error}` });
     }
   });
 
   // Add to cart
-  app.post('/api/cart', async (req: Request, res: Response) => {
+  app.post('/api/cart', async (req: RequestWithSession, res: Response) => {
     try {
-      const cartItemData = insertCartItemSchema.parse(req.body);
-      const cartItem = await storage.addToCart(cartItemData);
+      console.log("Received cart item data:", req.body);
+      
+      if (req.body.customPrintId && req.body.customPrintId > 0) {
+        console.log("Processing custom print for cart:", req.body.customPrintId);
+        
+        const cartItem = await storage.addToCart({
+          customPrintId: req.body.customPrintId,
+          quantity: req.body.quantity || 1,
+          userId: req.session?.userId || null,
+          productId: null,
+          photoUrl: null,
+          addedAt: new Date()
+        });
+        
+        console.log("Custom print added to cart:", cartItem);
+        return res.status(201).json(cartItem);
+      }
+      
+      const cartItemData = insertCartItemSchema.safeParse(req.body);
+      
+      if (!cartItemData.success) {
+        console.error("Validation errors:", cartItemData.error);
+        return res.status(400).json({ 
+          message: 'Invalid cart item data', 
+          errors: cartItemData.error.issues,
+          details: 'Validation failed with schema',
+          debug: {
+            productId: req.body.productId,
+            customPrintId: req.body.customPrintId,
+            typeofProductId: typeof req.body.productId,
+            typeofCustomPrintId: typeof req.body.customPrintId
+          }
+        });
+      }
+      
+      console.log("Parsed cart item data:", cartItemData.data);
+      const cartItem = await storage.addToCart({
+        ...cartItemData.data,
+        userId: req.session?.userId || null,
+        productId: cartItemData.data.productId || null,
+        customPrintId: cartItemData.data.customPrintId || null,
+        photoUrl: null,
+        addedAt: new Date()
+      });
       res.status(201).json(cartItem);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Zod validation error:", error.errors);
         res.status(400).json({ message: 'Invalid cart item data', errors: error.errors });
       } else {
+        console.error("Server error adding to cart:", error);
         res.status(500).json({ message: `Failed to add to cart: ${error}` });
       }
     }
@@ -112,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid cart item update' });
       }
       
-      const updatedItem = await storage.updateCartItem(id, quantity);
+      const updatedItem = await storage.updateCartItem(id, { quantity });
       if (updatedItem) {
         res.json(updatedItem);
       } else {
@@ -131,21 +249,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid cart item ID' });
       }
       
-      const success = await storage.removeCartItem(id);
-      if (success) {
-        res.status(204).send();
-      } else {
-        res.status(404).json({ message: 'Cart item not found' });
-      }
+      await storage.removeCartItem(id);
+      res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: `Failed to remove cart item: ${error}` });
     }
   });
 
   // Clear cart
-  app.delete('/api/cart', async (_req: Request, res: Response) => {
+  app.delete('/api/cart', async (req: RequestWithSession, res: Response) => {
     try {
-      await storage.clearCart();
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+      await storage.clearCart(userId);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: `Failed to clear cart: ${error}` });
@@ -161,10 +279,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedOrder = insertOrderSchema.parse(order);
       const validatedItems = items.map((item: any) => insertOrderItemSchema.parse(item));
       
-      const newOrder = await storage.createOrder(validatedOrder, validatedItems);
+      const orderData = {
+        ...validatedOrder,
+        createdAt: new Date(),
+        userId: validatedOrder.userId || null,
+        status: validatedOrder.status || 'pending'
+      };
+      
+      const newOrder = await storage.createOrder(orderData);
       
       // Clear cart after successful order
-      await storage.clearCart();
+      if (orderData.userId) {
+        await storage.clearCart(orderData.userId);
+      }
       
       res.status(201).json(newOrder);
     } catch (error) {
@@ -177,9 +304,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all orders
-  app.get('/api/orders', async (_req: Request, res: Response) => {
+  app.get('/api/orders', async (req: RequestWithSession, res: Response) => {
     try {
-      const orders = await storage.getUserOrders();
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+      
+      const orders = await storage.getUserOrders(userId);
       res.json(orders);
     } catch (error) {
       res.status(500).json({ message: `Failed to fetch orders: ${error}` });
@@ -194,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid order ID' });
       }
       
-      const order = await storage.getOrderById(id);
+      const order = await storage.getOrder(id);
       if (order) {
         res.json(order);
       } else {
@@ -219,24 +352,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save custom print
-  app.post('/api/custom-prints', async (req: Request, res: Response) => {
+  app.post('/api/custom-prints', async (req: RequestWithSession, res: Response) => {
     try {
-      const printData = insertCustomPrintSchema.parse(req.body);
-      const customPrint = await storage.saveCustomPrint(printData);
-      res.status(201).json(customPrint);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ message: 'Invalid custom print data', errors: error.errors });
-      } else {
-        res.status(500).json({ message: `Failed to save custom print: ${error}` });
+      const { material, dimensions } = req.body;
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ success: false, error: 'Not authenticated' });
       }
+
+      const customPrint = await storage.saveCustomPrint({
+        userId,
+        fileName: 'file.stl',
+        fileSize: 0,
+        material,
+        quality: 'standard',
+        infill: 20,
+        volume: null,
+        weight: null,
+        printTime: null,
+        complexity: null,
+        materialCost: null,
+        printTimeCost: null,
+        setupFee: null,
+        totalCost: null,
+        stlMetadata: null,
+        status: 'pending',
+        createdAt: new Date()
+      });
+      
+      res.status(201).json({ success: true, customPrint });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Σφάλμα κατά τη δημιουργία της εκτύπωσης' });
     }
   });
 
   // Get all custom prints
-  app.get('/api/custom-prints', async (_req: Request, res: Response) => {
+  app.get('/api/custom-prints', async (req: RequestWithSession, res: Response) => {
     try {
-      const prints = await storage.getCustomPrints();
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+      const prints = await storage.getUserCustomPrints(userId);
       res.json(prints);
     } catch (error) {
       res.status(500).json({ message: `Failed to fetch custom prints: ${error}` });
@@ -247,7 +405,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/contact', async (req: Request, res: Response) => {
     try {
       const messageData = insertContactMessageSchema.parse(req.body);
-      const message = await storage.saveContactMessage(messageData);
+      const message = await storage.saveContactMessage({
+        ...messageData,
+        createdAt: new Date(),
+        responded: false,
+        subject: messageData.subject || null
+      });
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -272,10 +435,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Save lithophane order
-  app.post('/api/lithophanes', async (req: Request, res: Response) => {
+  app.post('/api/lithophanes', async (req: RequestWithSession, res: Response) => {
     try {
-      const lithophaneData = insertLithophaneSchema.parse(req.body);
-      const lithophane = await storage.saveLithophane(lithophaneData);
+      const { material } = req.body;
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ success: false, error: 'Not authenticated' });
+      }
+
+      const lithophane = await storage.saveLithophane({
+        userId,
+        imageName: 'image.jpg',
+        imageSize: 0,
+        imageFormat: 'jpg',
+        thickness: "3",
+        width: "100",
+        height: "100",
+        baseThickness: "2",
+        material,
+        quality: 'standard',
+        infill: 20,
+        border: true,
+        borderWidth: null,
+        borderHeight: null,
+        invertImage: false,
+        negative: false,
+        printTime: null,
+        materialCost: null,
+        printTimeCost: null,
+        setupFee: null,
+        totalCost: null,
+        status: 'pending',
+        imagePreview: null,
+        createdAt: new Date()
+      });
       res.status(201).json(lithophane);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -287,9 +481,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get all lithophanes
-  app.get('/api/lithophanes', async (_req: Request, res: Response) => {
+  app.get('/api/lithophanes', async (req: RequestWithSession, res: Response) => {
     try {
-      const lithophanes = await storage.getLithophanes();
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+      const lithophanes = await storage.getUserLithophanes(userId);
       res.json(lithophanes);
     } catch (error) {
       res.status(500).json({ message: `Failed to fetch lithophanes: ${error}` });
@@ -304,7 +502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid lithophane ID' });
       }
       
-      const lithophane = await storage.getLithophaneById(id);
+      const lithophane = await storage.getLithophane(id);
       if (lithophane) {
         res.json(lithophane);
       } else {
@@ -312,6 +510,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       res.status(500).json({ message: `Failed to fetch lithophane: ${error}` });
+    }
+  });
+
+  // Get current user
+  app.get('/api/me', async (req: Request, res: Response) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (user) {
+        res.json(user);
+      } else {
+        res.status(404).json({ message: 'User not found' });
+      }
+    } catch (error) {
+      res.status(500).json({ message: `Failed to fetch user: ${error}` });
+    }
+  });
+
+  // Login
+  app.post('/api/login', async (req: Request, res: Response) => {
+    try {
+      const { usernameOrEmail, password } = req.body;
+      
+      if (!usernameOrEmail || !password) {
+        return res.status(400).json({ message: 'Username/email and password are required' });
+      }
+      
+      // Βρίσκουμε τον χρήστη είτε με username είτε με email
+      const user = await storage.getUserByUsernameOrEmail(usernameOrEmail);
+      
+      if (!user) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      // Ελέγχουμε το password
+      const match = await bcrypt.compare(password, user.password);
+      
+      if (!match) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      // Αποθηκεύουμε το userId στο session
+      if (req.session) {
+        req.session.userId = user.id;
+      }
+      
+      // Επιστρέφουμε τα στοιχεία του χρήστη χωρίς το password
+      const { password: _, ...userWithoutPassword } = user;
+      
+      res.status(200).json(userWithoutPassword);
+    } catch (error) {
+      res.status(500).json({ message: `Login failed: ${error}` });
+    }
+  });
+
+  // Register
+  app.post('/api/register', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Create user
+      const user = await storage.createUser({
+        email,
+        password: hashedPassword
+      });
+      
+      res.status(201).json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid user data', errors: error.errors });
+      } else {
+        res.status(500).json({ message: `Failed to create user: ${error}` });
+      }
+    }
+  });
+
+  // Logout
+  app.post('/api/logout', (req: Request, res: Response) => {
+    if (req.session) {
+      req.session.userId = undefined;
+      res.status(200).json({ message: 'Logged out successfully' });
+    } else {
+      res.status(500).json({ message: 'Session management error' });
     }
   });
 

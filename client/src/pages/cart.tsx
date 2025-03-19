@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { 
@@ -20,33 +20,81 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
+
+// Πλήρης ορισμός τύπου CartItem
+interface CartItem {
+  id: number;
+  userId: number | null;
+  productId: number | null;
+  customPrintId: number | null;
+  quantity: number;
+  photoUrl: string | null;
+  addedAt: Date | null;
+  product: {
+    id: number;
+    name: string;
+    price: string | number;
+    description: string | null;
+    imageUrl: string | null;
+    // πρόσθεσε άλλες ιδιότητες ανάλογα με τις ανάγκες
+  };
+}
 
 const Cart = () => {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [isClearing, setIsClearing] = useState(false);
   
-  const { data: cartItems, isLoading, error } = useQuery({
+  const { data: cartItems = [], isLoading, error, refetch } = useQuery<CartItem[]>({
     queryKey: ['/api/cart'],
+    retry: 3
   });
   
+  // Χειρισμός σφαλμάτων με useEffect
+  useEffect(() => {
+    if (error) {
+      console.error("Σφάλμα φόρτωσης καλαθιού:", error);
+      toast({
+        title: "Σφάλμα φόρτωσης καλαθιού",
+        description: "Παρουσιάστηκε πρόβλημα κατά τη φόρτωση του καλαθιού σας. Προσπαθήστε να ανανεώσετε τη σελίδα.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
+  
+  // Κουμπί επαναφόρτωσης καλαθιού
+  const handleRetryLoad = () => {
+    refetch().catch(err => {
+      console.error("Σφάλμα επαναφόρτωσης καλαθιού:", err);
+      toast({
+        title: "Αποτυχία επαναφόρτωσης",
+        description: "Δεν ήταν δυνατή η επαναφόρτωση του καλαθιού. Προσπαθήστε αργότερα.",
+        variant: "destructive",
+      });
+    });
+  };
+  
+  console.log("Cart data in cart component:", cartItems);
+  
   const calculateSubtotal = () => {
-    if (!cartItems || cartItems.length === 0) return 0;
+    if (!cartItems?.length) return 0;
     
     return cartItems.reduce((total, item) => {
-      const price = parseFloat(item.product.price.toString());
-      return total + (price * item.quantity);
+      const itemPrice = parseFloat(typeof item.product.price === 'string' ? item.product.price : item.product.price.toString());
+      return total + (itemPrice * item.quantity);
     }, 0);
   };
   
   const calculateTaxes = (subtotal: number) => {
-    // Example tax rate of 7%
-    return subtotal * 0.07; 
+    // 24% ΦΠΑ
+    return subtotal * 0.24;
   };
   
   const calculateShipping = (subtotal: number) => {
-    // Free shipping over $75, otherwise $8.95
-    return subtotal > 75 ? 0 : 8.95;
+    // Δωρεάν μεταφορικά για παραγγελίες άνω των 50€
+    return subtotal > 50 ? 0 : 4.99;
   };
   
   const calculateTotal = () => {
@@ -58,7 +106,7 @@ const Cart = () => {
   };
   
   const clearCart = async () => {
-    if (!cartItems || cartItems.length === 0) return;
+    if (isClearing) return;
     
     setIsClearing(true);
     try {
@@ -68,13 +116,14 @@ const Cart = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
       
       toast({
-        title: "Cart cleared",
-        description: "All items have been removed from your cart.",
+        title: "Καλάθι καθαρίστηκε",
+        description: "Όλα τα προϊόντα αφαιρέθηκαν από το καλάθι σας.",
       });
     } catch (error) {
+      console.error("Error clearing cart:", error);
       toast({
-        title: "Error",
-        description: "Failed to clear cart. Please try again.",
+        title: "Σφάλμα",
+        description: "Αποτυχία εκκαθάρισης του καλαθιού. Παρακαλώ δοκιμάστε ξανά.",
         variant: "destructive",
       });
     } finally {
@@ -83,32 +132,16 @@ const Cart = () => {
   };
   
   const goToCheckout = () => {
-    if (!cartItems || cartItems.length === 0) {
-      toast({
-        title: "Empty Cart",
-        description: "Please add items to your cart before proceeding to checkout.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setLocation("/checkout");
+    setLocation('/checkout');
   };
   
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <div className="bg-gray-200 rounded-lg h-32 mb-4"></div>
-              <div className="bg-gray-200 rounded-lg h-32 mb-4"></div>
-            </div>
-            <div>
-              <div className="bg-gray-200 rounded-lg h-64"></div>
-            </div>
-          </div>
+      <div className="container mx-auto py-12 px-4 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <ShoppingBagIcon className="h-12 w-12 mx-auto text-primary animate-pulse" />
+          <h2 className="text-2xl font-semibold mt-4">{t('cart.loading')}</h2>
+          <p className="text-muted-foreground">{t('cart.please_wait')}</p>
         </div>
       </div>
     );
@@ -116,146 +149,143 @@ const Cart = () => {
   
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <Card className="text-center py-12">
+      <div className="container mx-auto py-12 px-4 flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-lg">
+          <CardHeader className="text-center">
+            <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-2" />
+            <CardTitle className="text-2xl">{t('cart.error_loading')}</CardTitle>
+          </CardHeader>
           <CardContent>
-            <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Cart</h2>
-            <p className="text-gray-600 mb-6">
-              We encountered a problem loading your shopping cart. Please try again.
+            <p className="text-center mb-6">
+              {t('cart.cart_load_failed')}
             </p>
-            <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/cart'] })}>
-              Retry
-            </Button>
+            <div className="flex justify-center">
+              <Button onClick={handleRetryLoad}>
+                {t('cart.retry')}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
   
-  const isEmpty = !cartItems || cartItems.length === 0;
-  
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-        <p className="text-gray-500 mt-1">
-          {isEmpty ? 'Your cart is empty' : `You have ${cartItems.length} item${cartItems.length !== 1 ? 's' : ''} in your cart`}
-        </p>
-      </div>
-      
-      {isEmpty ? (
-        <Card className="text-center py-12">
+  if (!cartItems || cartItems.length === 0) {
+    return (
+      <div className="container mx-auto py-12 px-4 flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-lg">
+          <CardHeader className="text-center">
+            <ShoppingBagIcon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+            <CardTitle className="text-2xl">{t('cart.empty_cart')}</CardTitle>
+          </CardHeader>
           <CardContent>
-            <ShoppingBagIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
-            <p className="text-gray-600 mb-6">
-              Looks like you haven't added anything to your cart yet.
+            <p className="text-center mb-6">
+              {t('cart.no_items')}
             </p>
-            <Button asChild>
-              <Link href="/products">Browse Products</Link>
-            </Button>
+            <div className="flex justify-center">
+              <Link href="/products">
+                <Button>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  {t('cart.continue_shopping')}
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Items</CardTitle>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+      </div>
+    );
+  }
+  
+  return (
+    <div className="container mx-auto py-12 px-4">
+      <h1 className="text-3xl font-bold mb-8">{t('cart.your_cart')}</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-center">
+                <CardTitle>{t('cart.items')}</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={clearCart}
                   disabled={isClearing}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear Cart
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {cartItems.map((item) => (
-                    <CartItemComponent key={item.id} item={item} />
-                  ))}
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setLocation("/products")}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Continue Shopping
-                </Button>
-                <Button 
-                  size="sm"
-                  onClick={() => setLocation("/calculator")}
-                >
-                  Custom 3D Print
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-          
-          {/* Order Summary */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span>${calculateSubtotal().toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Shipping</span>
-                    <span>
-                      {calculateShipping(calculateSubtotal()) === 0 
-                        ? 'Free' 
-                        : `$${calculateShipping(calculateSubtotal()).toFixed(2)}`
-                      }
+                  {isClearing ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {t('cart.clearing')}
                     </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tax (estimated)</span>
-                    <span>${calculateTaxes(calculateSubtotal()).toFixed(2)}</span>
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total</span>
-                    <span>${calculateTotal().toFixed(2)}</span>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  className="w-full"
-                  onClick={goToCheckout}
-                >
-                  Proceed to Checkout
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {t('cart.clear_cart')}
+                    </>
+                  )}
                 </Button>
-              </CardFooter>
-            </Card>
-            
-            <Card className="mt-4">
-              <CardContent className="p-4 text-sm">
-                <p className="font-medium mb-2">We Accept</p>
-                <div className="flex space-x-2">
-                  <div className="p-2 border rounded bg-gray-50">Visa</div>
-                  <div className="p-2 border rounded bg-gray-50">MasterCard</div>
-                  <div className="p-2 border rounded bg-gray-50">PayPal</div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {cartItems.map((item) => (
+                  <CartItemComponent key={item.id} item={item} />
+                ))}
+              </div>
+            </CardContent>
+            <CardFooter className="pt-3 flex justify-between">
+              <Link href="/products">
+                <Button variant="outline">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  {t('cart.continue_shopping')}
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
         </div>
-      )}
+        
+        <div>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('cart.order_summary')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span>{t('cart.subtotal')}</span>
+                  <span>{calculateSubtotal().toFixed(2)} €</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{t('cart.tax')}</span>
+                  <span>{calculateTaxes(calculateSubtotal()).toFixed(2)} €</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{t('cart.shipping')}</span>
+                  <span>
+                    {calculateShipping(calculateSubtotal()) === 0 
+                      ? t('cart.free') 
+                      : `${calculateShipping(calculateSubtotal()).toFixed(2)} €`}
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-bold text-lg">
+                  <span>{t('cart.total')}</span>
+                  <span>{calculateTotal().toFixed(2)} €</span>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onClick={goToCheckout}>
+                {t('cart.checkout')}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

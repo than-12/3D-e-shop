@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useLanguage } from "@/hooks/use-language";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -37,6 +38,7 @@ const Contact = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const { t } = useLanguage();
   
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(formSchema),
@@ -58,8 +60,8 @@ const Contact = () => {
       form.reset();
       
       toast({
-        title: "Message Sent",
-        description: "Thank you for your message. We'll get back to you soon!",
+        title: t('contact.message_sent'),
+        description: t('contact.message_sent'),
       });
     } catch (error) {
       toast({
@@ -76,9 +78,9 @@ const Contact = () => {
     <div className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">Contact Us</h1>
+          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">{t('contact.contact_title')}</h1>
           <p className="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
-            Have questions about our 3D printing services? We're here to help!
+            {t('contact.contact_description')}
           </p>
         </div>
         
@@ -92,7 +94,7 @@ const Contact = () => {
                     <MapPin className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Our Location</h3>
+                    <h3 className="font-medium text-gray-900">{t('contact.address_title')}</h3>
                     <p className="mt-1 text-gray-600">
                       123 Printing Way<br />
                       New York, NY 10001
@@ -106,7 +108,7 @@ const Contact = () => {
                     <Phone className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Phone</h3>
+                    <h3 className="font-medium text-gray-900">{t('contact.phone_title')}</h3>
                     <p className="mt-1 text-gray-600">
                       (123) 456-7890
                     </p>
@@ -122,7 +124,7 @@ const Contact = () => {
                     <Mail className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Email</h3>
+                    <h3 className="font-medium text-gray-900">{t('contact.email_title')}</h3>
                     <p className="mt-1 text-gray-600">
                       info@3dprintcraft.com
                     </p>
@@ -138,9 +140,9 @@ const Contact = () => {
                     <Clock className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Business Hours</h3>
+                    <h3 className="font-medium text-gray-900">{t('contact.hours_title')}</h3>
                     <div className="mt-1 text-gray-600 space-y-1">
-                      <p>Monday - Friday: 9am - 6pm</p>
+                      <p>{t('contact.hours_content')}</p>
                       <p>Saturday: 10am - 4pm</p>
                       <p>Sunday: Closed</p>
                     </div>
@@ -154,9 +156,9 @@ const Contact = () => {
           <div className="mt-12 lg:mt-0 lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>Send us a message</CardTitle>
+                <CardTitle>{t('contact.contact_form')}</CardTitle>
                 <CardDescription>
-                  Fill out the form below and we'll get back to you as soon as possible.
+                  {t('contact.contact_description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -165,12 +167,12 @@ const Contact = () => {
                     <div className="bg-green-100 p-3 rounded-full mb-4">
                       <Check className="h-8 w-8 text-green-600" />
                     </div>
-                    <h3 className="text-xl font-medium text-gray-900 mb-2">Thank you for your message!</h3>
+                    <h3 className="text-xl font-medium text-gray-900 mb-2">{t('contact.message_sent')}</h3>
                     <p className="text-gray-600 max-w-md">
-                      We've received your inquiry and will respond to you shortly. In the meantime, feel free to explore our products and services.
+                      {t('contact.message_sent')}
                     </p>
                     <Button className="mt-6" onClick={() => setSubmitted(false)}>
-                      Send Another Message
+                      {t('contact.send_message')}
                     </Button>
                   </div>
                 ) : (
@@ -182,9 +184,9 @@ const Contact = () => {
                           name="name"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Name</FormLabel>
+                              <FormLabel>{t('contact.your_name')}</FormLabel>
                               <FormControl>
-                                <Input placeholder="Your name" {...field} />
+                                <Input placeholder={t('contact.your_name')} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -196,9 +198,9 @@ const Contact = () => {
                           name="email"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Email</FormLabel>
+                              <FormLabel>{t('contact.your_email')}</FormLabel>
                               <FormControl>
-                                <Input type="email" placeholder="Your email" {...field} />
+                                <Input type="email" placeholder={t('contact.your_email')} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -210,9 +212,9 @@ const Contact = () => {
                           name="subject"
                           render={({ field }) => (
                             <FormItem className="sm:col-span-2">
-                              <FormLabel>Subject</FormLabel>
+                              <FormLabel>{t('contact.subject')}</FormLabel>
                               <FormControl>
-                                <Input placeholder="What's this about?" {...field} />
+                                <Input placeholder={t('contact.subject')} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -224,10 +226,10 @@ const Contact = () => {
                           name="message"
                           render={({ field }) => (
                             <FormItem className="sm:col-span-2">
-                              <FormLabel>Message</FormLabel>
+                              <FormLabel>{t('contact.message')}</FormLabel>
                               <FormControl>
                                 <Textarea 
-                                  placeholder="Tell us about your project or question" 
+                                  placeholder={t('contact.message')} 
                                   className="min-h-32" 
                                   {...field} 
                                 />
@@ -245,11 +247,11 @@ const Contact = () => {
                           disabled={isSubmitting}
                         >
                           {isSubmitting ? (
-                            "Sending..."
+                            t('common.processing')
                           ) : (
                             <>
                               <Send className="mr-2 h-4 w-4" />
-                              Send Message
+                              {t('contact.send_message')}
                             </>
                           )}
                         </Button>
@@ -280,37 +282,37 @@ const Contact = () => {
         {/* FAQ Section */}
         <div className="mt-16">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-extrabold text-gray-900">Frequently Asked Questions</h2>
+            <h2 className="text-3xl font-extrabold text-gray-900">{t('footer.faq')}</h2>
             <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
-              Find quick answers to common questions about our 3D printing services.
+              {t('contact.faq_description')}
             </p>
           </div>
           
           <div className="grid gap-6 lg:grid-cols-2">
             {[
               {
-                q: "What file formats do you accept?",
-                a: "We accept STL, OBJ, and 3MF files. STL is the most common and recommended format for best results with our printing process."
+                q: t('contact.faq.file_formats.q'),
+                a: t('contact.faq.file_formats.a')
               },
               {
-                q: "How long does it take to print my order?",
-                a: "Standard print times range from 1-5 business days depending on the size, complexity, and quantity of your order. Custom orders may take longer."
+                q: t('contact.faq.print_time.q'),
+                a: t('contact.faq.print_time.a')
               },
               {
-                q: "What materials are available for printing?",
-                a: "We offer a variety of materials including PLA, ABS, PETG, TPU, and special composites like wood-filled or carbon fiber blends."
+                q: t('contact.faq.materials.q'),
+                a: t('contact.faq.materials.a')
               },
               {
-                q: "Do you ship internationally?",
-                a: "Yes, we ship worldwide. International shipping costs and delivery times will be calculated at checkout."
+                q: t('contact.faq.shipping.q'),
+                a: t('contact.faq.shipping.a')
               },
               {
-                q: "Can you help me design a 3D model?",
-                a: "Yes! We offer design services for customers who have an idea but not a ready-made 3D model. Contact us to discuss your project."
+                q: t('contact.faq.design.q'),
+                a: t('contact.faq.design.a')
               },
               {
-                q: "What's your return policy?",
-                a: "Since 3D printed items are custom-made, we generally don't accept returns. However, if there's a quality issue with your order, please contact us within 7 days of receipt."
+                q: t('contact.faq.return.q'),
+                a: t('contact.faq.return.a')
               }
             ].map((faq, index) => (
               <Card key={index}>

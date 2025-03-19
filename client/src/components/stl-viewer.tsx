@@ -1,155 +1,99 @@
-import { useEffect, useRef, useState } from "react";
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { StlViewer } from "react-stl-viewer";
+import * as THREE from "three";
+import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
 interface STLViewerProps {
   stlFile: File | null;
   onLoad?: (geometry: THREE.BufferGeometry) => void;
 }
 
-const STLViewer = ({ stlFile, onLoad }: STLViewerProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+// Ελέγχουμε τις υποστηριζόμενες ιδιότητες του StlViewer
+interface StlProps {
+  url: string;
+  width?: number | string;
+  height?: number | string;
+  style?: React.CSSProperties;
+  orbitControls?: boolean;
+}
+
+const STLViewerComponent = ({ stlFile, onLoad }: STLViewerProps) => {
+  const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
+  // Δημιουργεί URL για το STL αρχείο όταν το αρχείο αλλάζει
   useEffect(() => {
-    if (!containerRef.current || !stlFile) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    const container = containerRef.current;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    
-    // Initialize scene, camera, and renderer
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
-    
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 20);
-    
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    container.appendChild(renderer.domElement);
-    
-    // Add lighting
-    const ambientLight = new THREE.AmbientLight(0x888888);
-    scene.add(ambientLight);
-    
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(1, 1, 1);
-    scene.add(directionalLight);
-    
-    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight2.position.set(-1, -1, -1);
-    scene.add(directionalLight2);
-    
-    // Add controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.1;
-    
-    // Load STL file
-    const loader = new STLLoader();
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target && event.target.result) {
-        try {
-          const geometry = loader.parse(event.target.result as ArrayBuffer);
+    if (stlFile) {
+      setLoading(true);
+      setError(null);
+      
+      // Καθαρίζουμε τυχόν προηγούμενο URL
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
+      
+      try {
+        // Δημιουργούμε νέο URL για το αρχείο
+        const fileUrl = URL.createObjectURL(stlFile);
+        console.log("Created URL for STL file:", fileUrl);
+        setUrl(fileUrl);
+        
+        // Φορτώνουμε το STL και εξάγουμε πληροφορίες γεωμετρίας
+        if (onLoad) {
+          const loader = new STLLoader();
+          const reader = new FileReader();
           
-          // Center geometry
-          geometry.computeBoundingBox();
-          const boundingBox = geometry.boundingBox as THREE.Box3;
-          const center = new THREE.Vector3();
-          boundingBox.getCenter(center);
-          geometry.translate(-center.x, -center.y, -center.z);
+          reader.onload = (event) => {
+            if (event.target && event.target.result) {
+              try {
+                const arrayBuffer = event.target.result as ArrayBuffer;
+                const geometry = loader.parse(arrayBuffer);
+                console.log("STL parsed successfully");
+                
+                // Κλωνοποιούμε τη γεωμετρία για να αποφύγουμε προβλήματα αναφοράς
+                const geometryClone = geometry.clone();
+                onLoad(geometryClone);
+              } catch (parseError) {
+                console.error("Failed to parse STL file:", parseError);
+                setError("Σφάλμα στην ανάλυση του STL αρχείου. Δοκιμάστε άλλο αρχείο.");
+              } finally {
+                setLoading(false);
+              }
+            }
+          };
           
-          // Fit camera to object
-          const size = boundingBox.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          const fov = camera.fov * (Math.PI / 180);
-          let cameraZ = Math.abs(maxDim / Math.sin(fov / 2));
+          reader.onerror = () => {
+            console.error("Error reading STL file");
+            setError("Σφάλμα κατά την ανάγνωση του αρχείου.");
+            setLoading(false);
+          };
           
-          // Add a margin
-          cameraZ *= 1.5;
-          camera.position.z = cameraZ;
-          
-          // Set camera near and far planes
-          const minZ = boundingBox.min.z;
-          const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
-          camera.far = cameraToFarEdge * 3;
-          camera.near = cameraZ / 100;
-          camera.updateProjectionMatrix();
-          
-          // Create material and mesh
-          const material = new THREE.MeshPhongMaterial({
-            color: 0x3080e8,
-            specular: 0x111111,
-            shininess: 200
-          });
-          const mesh = new THREE.Mesh(geometry, material);
-          scene.add(mesh);
-          
-          // Provide geometry to parent component if needed
-          if (onLoad) {
-            onLoad(geometry);
-          }
-          
-          setLoading(false);
-        } catch (err) {
-          console.error('Error loading STL', err);
-          setError('Failed to load the STL file. Make sure it is a valid STL file.');
+          reader.readAsArrayBuffer(stlFile);
+        } else {
           setLoading(false);
         }
+      } catch (error) {
+        console.error("Error creating URL for STL file:", error);
+        setError("Σφάλμα δημιουργίας προεπισκόπησης για το STL αρχείο.");
+        setLoading(false);
       }
-    };
+    } else {
+      // Καθαρίζουμε το URL όταν δεν υπάρχει αρχείο
+      if (url) {
+        URL.revokeObjectURL(url);
+        setUrl(null);
+      }
+    }
     
-    reader.onerror = () => {
-      setError('Error reading the file');
-      setLoading(false);
-    };
-    
-    reader.readAsArrayBuffer(stlFile);
-    
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    
-    animate();
-    
-    // Handle resize
-    const handleResize = () => {
-      if (!containerRef.current) return;
-      
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    
-    // Cleanup
+    // Cleanup function
     return () => {
-      window.removeEventListener('resize', handleResize);
-      
-      if (containerRef.current && containerRef.current.contains(renderer.domElement)) {
-        containerRef.current.removeChild(renderer.domElement);
+      if (url) {
+        URL.revokeObjectURL(url);
       }
-      
-      scene.clear();
-      renderer.dispose();
     };
   }, [stlFile, onLoad]);
   
@@ -158,29 +102,41 @@ const STLViewer = ({ stlFile, onLoad }: STLViewerProps) => {
       <CardContent className="p-0 relative">
         <div 
           ref={containerRef} 
-          className="w-full h-80 rounded-md overflow-hidden"
+          className="w-full h-80 rounded-md overflow-hidden bg-white"
         >
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-70">
+            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
               <Loader2 className="h-10 w-10 text-primary animate-spin" />
-              <span className="ml-2 text-lg font-medium">Loading model...</span>
+              <span className="ml-2 text-lg font-medium">Φόρτωση μοντέλου...</span>
             </div>
           )}
           
           {error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
               <div className="text-center p-4">
                 <p className="text-red-500 font-medium">{error}</p>
-                <p className="mt-2 text-sm text-gray-600">Try uploading a different STL file.</p>
+                <p className="mt-2 text-sm text-gray-600">Δοκιμάστε να ανεβάσετε διαφορετικό STL αρχείο.</p>
               </div>
             </div>
           )}
           
           {!stlFile && !loading && !error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
               <div className="text-center p-4">
-                <p className="text-gray-500 font-medium">Upload an STL file to view the 3D model</p>
+                <p className="text-gray-500 font-medium">Ανεβάστε ένα STL αρχείο για να δείτε το 3D μοντέλο</p>
               </div>
+            </div>
+          )}
+          
+          {url && !loading && !error && (
+            <div style={{ width: "100%", height: "320px" }}>
+              <StlViewer
+                url={url}
+                width={containerRef.current?.clientWidth || 400}
+                height={320}
+                orbitControls={true}
+                style={{ width: "100%", height: "100%" }}
+              />
             </div>
           )}
         </div>
@@ -189,4 +145,4 @@ const STLViewer = ({ stlFile, onLoad }: STLViewerProps) => {
   );
 };
 
-export default STLViewer;
+export default STLViewerComponent;

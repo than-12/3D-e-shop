@@ -9,6 +9,7 @@ import {
   Gamepad, 
   Lightbulb 
 } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
 
 const getCategoryIcon = (icon: string) => {
   switch (icon) {
@@ -33,6 +34,7 @@ const CategoryNav = () => {
   const { data: categories, isLoading } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
   });
+  const { t } = useLanguage();
 
   if (isLoading) {
     return (
@@ -56,13 +58,15 @@ const CategoryNav = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex space-x-8 overflow-x-auto py-4 scrollbar-hide">
           {categories?.map((category) => (
-            <Link key={category.id} href={`/products?category=${category.slug}`}>
-              <a className="flex-shrink-0 flex flex-col items-center group">
-                <div className="bg-gray-100 p-3 rounded-full group-hover:bg-blue-50 group-hover:text-primary transition-colors">
-                  {getCategoryIcon(category.icon || '')}
-                </div>
-                <span className="mt-2 text-sm font-medium text-gray-700">{category.name}</span>
-              </a>
+            <Link 
+              key={category.id} 
+              href={`/products?category=${category.slug}`}
+              className="flex-shrink-0 flex flex-col items-center group"
+            >
+              <div className="bg-gray-100 p-3 rounded-full group-hover:bg-blue-50 group-hover:text-primary transition-colors">
+                {getCategoryIcon(category.icon || '')}
+              </div>
+              <span className="mt-2 text-sm font-medium text-gray-700">{t(`categories.${category.slug}`)}</span>
             </Link>
           ))}
         </div>
