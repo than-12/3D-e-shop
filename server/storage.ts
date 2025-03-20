@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import { 
   users, type User, type InsertUser,
   categories, type Category, type InsertCategory,
@@ -9,8 +8,9 @@ import {
   customPrints, type CustomPrint, type InsertCustomPrint,
   contactMessages, type ContactMessage, type InsertContactMessage,
   lithophanes, type Lithophane, type InsertLithophane
-} from "@shared/schema";
-import { eq } from "drizzle-orm";
+} from "./db/schema";
+import { eq, and } from "drizzle-orm";
+import { db } from './db';
 
 export interface IStorage {
   // Users
@@ -70,130 +70,144 @@ export interface IStorage {
   getOrdersByUserId(userId: number): Promise<Order[]>;
 }
 
-export class PrismaStorage implements IStorage {
-  private prisma: PrismaClient;
-  
-  constructor() {
-    this.prisma = new PrismaClient();
-  }
-
+export class DrizzleStorage implements IStorage {
   // Users
   async getUser(id: number): Promise<User | null> {
-    return this.prisma.user.findUnique({
-      where: { id: id.toString() }
-    });
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result.length > 0 ? result[0] : null;
   }
   
   async getUserByUsername(username: string): Promise<User | null> {
-    return this.prisma.user.findUnique({
-      where: { username }
-    });
+    const result = await db.select().from(users).where(eq(users.username, username));
+    return result.length > 0 ? result[0] : null;
   }
   
   async getUserByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({
-      where: { email }
-    });
+    const result = await db.select().from(users).where(eq(users.email, email));
+    return result.length > 0 ? result[0] : null;
   }
   
   async getUserByUsernameOrEmail(usernameOrEmail: string): Promise<User | null> {
-    return this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { username: usernameOrEmail },
-          { email: usernameOrEmail }
-        ]
-      }
-    });
+    const result = await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.username, usernameOrEmail),
+          eq(users.email, usernameOrEmail)
+        )
+      );
+    return result.length > 0 ? result[0] : null;
   }
   
   async createUser(userData: InsertUser): Promise<User | null> {
-    return this.prisma.user.create({
-      data: userData
-    });
+    const result = await db.insert(users).values(userData).returning();
+    return result.length > 0 ? result[0] : null;
   }
   
   // Categories
   async getCategories(): Promise<Category[]> {
-    return this.prisma.category.findMany();
+    return db.select().from(categories);
   }
   
   async getCategoryBySlug(slug: string): Promise<Category | undefined> {
-    return this.prisma.category.findUnique({
-      where: { slug }
-    });
+    const result = await db.select().from(categories).where(eq(categories.slug, slug));
+    return result.length > 0 ? result[0] : undefined;
   }
   
   async createCategory(category: InsertCategory): Promise<Category> {
-    return this.prisma.category.create({
-      data: category
-    });
+    const result = await db.insert(categories).values(category).returning();
+    return result[0];
   }
   
   // Products
   async getProducts(): Promise<Product[]> {
-    return this.prisma.product.findMany();
+    return db.select().from(products);
   }
   
   async getProductsByCategory(categoryId: number): Promise<Product[]> {
-    return this.prisma.product.findMany({
-      where: { categoryId: categoryId.toString() }
-    });
+    return db.select().from(products).where(eq(products.categoryId, categoryId));
   }
   
   async getProductBySlug(slug: string): Promise<Product | undefined> {
-    return this.prisma.product.findUnique({
-      where: { slug }
-    });
+    const result = await db.select().from(products).where(eq(products.slug, slug));
+    return result.length > 0 ? result[0] : undefined;
   }
   
   async getFeaturedProducts(): Promise<Product[]> {
-    return this.prisma.product.findMany({
-      where: { featured: true }
-    });
+    return db.select().from(products).where(eq(products.featured, true));
   }
   
   async createProduct(product: InsertProduct): Promise<Product> {
-    return this.prisma.product.create({
-      data: product
-    });
+    const result = await db.insert(products).values(product).returning();
+    return result[0];
   }
   
   // Cart
   async getCartItems(userId?: number): Promise<CartItem[]> {
-    return this.prisma.cartItem.findMany({
-      where: userId ? { userId: userId.toString() } : undefined,
-      include: { product: true }
-    });
+    if (userId) {
+      return db.select()
+        .from(cartItems)
+        .leftJoin(products, eq(cartItems.productId, products.id))
+        .where(eq(cartItems.userId, userId));
+    } else {
+      return db.select()
+        .from(cartItems)
+        .leftJoin(products, eq(cartItems.productId, products.id));
+    }
   }
   
   async getCartItemWithProduct(cartItemId: number): Promise<(CartItem & { product: Product }) | undefined> {
-    return this.prisma.cartItem.findUnique({
-      where: { id: cartItemId.toString() },
-      include: { product: true }
-    });
+    const result = await db.select()
+      .from(cartItems)
+      .leftJoin(products, eq(cartItems.productId, products.id))
+      .where(eq(cartItems.id, cartItemId));
+    
+    if (result.length === 0) return undefined;
+    
+    return {
+      ...result[0].cartItems,
+      product: result[0].products
+    };
   }
   
   async addToCart(item: InsertCartItem): Promise<CartItem> {
-    return this.prisma.cartItem.create({
-      data: item,
-      include: { product: true }
-    });
+    const result = await db.insert(cartItems).values(item).returning();
+    const cartItem = result[0];
+    
+    const productResult = await db.select()
+      .from(products)
+      .where(eq(products.id, cartItem.productId));
+    
+    return {
+      ...cartItem,
+      product: productResult[0]
+    };
   }
   
   async updateCartItem(id: number, quantity: number): Promise<CartItem | undefined> {
-    return this.prisma.cartItem.update({
-      where: { id: id.toString() },
-      data: { quantity },
-      include: { product: true }
-    });
+    const result = await db
+      .update(cartItems)
+      .set({ quantity })
+      .where(eq(cartItems.id, id))
+      .returning();
+    
+    if (result.length === 0) return undefined;
+    
+    const cartItem = result[0];
+    const productResult = await db.select()
+      .from(products)
+      .where(eq(products.id, cartItem.productId));
+    
+    return {
+      ...cartItem,
+      product: productResult[0]
+    };
   }
   
   async removeCartItem(id: number): Promise<boolean> {
     try {
-      await this.prisma.cartItem.delete({
-        where: { id: id.toString() }
-      });
+      await db.delete(cartItems).where(eq(cartItems.id, id));
       return true;
     } catch {
       return false;
@@ -202,9 +216,11 @@ export class PrismaStorage implements IStorage {
   
   async clearCart(userId?: number): Promise<boolean> {
     try {
-      await this.prisma.cartItem.deleteMany({
-        where: userId ? { userId: userId.toString() } : undefined
-      });
+      if (userId) {
+        await db.delete(cartItems).where(eq(cartItems.userId, userId));
+      } else {
+        await db.delete(cartItems);
+      }
       return true;
     } catch {
       return false;
@@ -213,134 +229,159 @@ export class PrismaStorage implements IStorage {
   
   // Orders
   async createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
-    return this.prisma.order.create({
-      data: {
-        ...order,
-        items: {
-          create: items
-        }
-      },
-      include: {
-        items: {
-          include: { product: true }
-        }
-      }
-    });
+    const orderResult = await db.insert(orders).values(order).returning();
+    const createdOrder = orderResult[0];
+    
+    await Promise.all(
+      items.map(item => 
+        db.insert(orderItems).values({
+          ...item,
+          orderId: createdOrder.id
+        })
+      )
+    );
+    
+    return this.getOrderById(createdOrder.id);
   }
   
   async getOrderById(id: number): Promise<(Order & { items: (OrderItem & { product: Product })[] }) | undefined> {
-    return this.prisma.order.findUnique({
-      where: { id: id.toString() },
-      include: {
-        items: {
-          include: { product: true }
-        }
-      }
-    });
+    const orderResult = await db.select().from(orders).where(eq(orders.id, id));
+    if (orderResult.length === 0) return undefined;
+    
+    const order = orderResult[0];
+    
+    const itemsResult = await db.select()
+      .from(orderItems)
+      .leftJoin(products, eq(orderItems.productId, products.id))
+      .where(eq(orderItems.orderId, order.id));
+    
+    const items = itemsResult.map(row => ({
+      ...row.orderItems,
+      product: row.products
+    }));
+    
+    return {
+      ...order,
+      items
+    };
   }
   
   async getUserOrders(userId?: number): Promise<Order[]> {
-    return this.prisma.order.findMany({
-      where: userId ? { userId: userId.toString() } : undefined,
-      include: {
-        items: {
-          include: { product: true }
-        }
-      }
-    });
+    if (userId) {
+      return db.select().from(orders).where(eq(orders.userId, userId));
+    } else {
+      return db.select().from(orders);
+    }
   }
   
   // Custom Prints
   async calculatePrintCost(printDetails: Partial<InsertCustomPrint>): Promise<CustomPrint> {
-    // Υλοποίηση του υπολογισμού κόστους
+    // Υπολογισμός κόστους εκτύπωσης με βάση τις διαστάσεις και άλλες παραμέτρους
+    const baseCost = 10; // Βασικό κόστος
+    const dimensionCost = (printDetails.width || 0) * (printDetails.height || 0) * (printDetails.depth || 0) * 0.01;
+    const materialMultiplier = printDetails.material === 'PLA' ? 1 : 
+                                printDetails.material === 'ABS' ? 1.2 : 
+                                printDetails.material === 'PETG' ? 1.3 : 1;
+    const colorMultiplier = printDetails.color === 'standard' ? 1 : 1.2;
+    const qualityMultiplier = printDetails.quality === 'standard' ? 1 : 
+                               printDetails.quality === 'high' ? 1.3 : 1.5;
+    
+    const totalCost = (baseCost + dimensionCost) * materialMultiplier * colorMultiplier * qualityMultiplier;
+    
     return {
-      id: 0,
-      userId: printDetails.userId || null,
-      name: printDetails.name || '',
-      description: printDetails.description || '',
-      fileUrl: printDetails.fileUrl || '',
+      id: 0, // Temporary ID
+      userId: printDetails.userId || 0,
+      width: printDetails.width || 0,
+      height: printDetails.height || 0,
+      depth: printDetails.depth || 0,
       material: printDetails.material || 'PLA',
+      color: printDetails.color || 'standard',
       quality: printDetails.quality || 'standard',
-      volume: printDetails.volume || 0,
-      cost: 0,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      quantity: printDetails.quantity || 1,
+      notes: printDetails.notes || '',
+      price: Math.round(totalCost * 100) / 100,
+      status: 'calculated',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
   }
   
   async saveCustomPrint(customPrint: InsertCustomPrint): Promise<CustomPrint> {
-    return this.prisma.customPrint.create({
-      data: customPrint
-    });
+    const result = await db.insert(customPrints).values(customPrint).returning();
+    return result[0];
   }
   
   async getCustomPrints(userId?: number): Promise<CustomPrint[]> {
-    return this.prisma.customPrint.findMany({
-      where: userId ? { userId: userId.toString() } : undefined
-    });
+    if (userId) {
+      return db.select().from(customPrints).where(eq(customPrints.userId, userId));
+    } else {
+      return db.select().from(customPrints);
+    }
   }
-
-  // Contact Messages
+  
+  // Contact
   async saveContactMessage(message: InsertContactMessage): Promise<ContactMessage> {
-    return this.prisma.contactMessage.create({
-      data: message
-    });
+    const result = await db.insert(contactMessages).values(message).returning();
+    return result[0];
   }
   
   async getContactMessages(): Promise<ContactMessage[]> {
-    return this.prisma.contactMessage.findMany();
+    return db.select().from(contactMessages);
   }
-
-  // Lithophanes
+  
+  // Lithophane Prints
   async calculateLithophaneCost(lithophaneDetails: Partial<InsertLithophane>): Promise<Lithophane> {
-    // Υλοποίηση του υπολογισμού κόστους
+    // Υπολογισμός κόστους λιθοφάνειας
+    const baseCost = 15; // Βασικό κόστος λιθοφάνειας
+    const sizeCost = (lithophaneDetails.width || 0) * (lithophaneDetails.height || 0) * 0.02;
+    const thicknessMultiplier = lithophaneDetails.thickness === 'thin' ? 1 : 
+                                lithophaneDetails.thickness === 'medium' ? 1.2 : 1.4;
+    const frameMultiplier = lithophaneDetails.hasFrame ? 1.3 : 1;
+    const standMultiplier = lithophaneDetails.hasStand ? 1.2 : 1;
+    const lightingMultiplier = lithophaneDetails.hasLighting ? 1.5 : 1;
+    
+    const totalCost = (baseCost + sizeCost) * thicknessMultiplier * frameMultiplier * standMultiplier * lightingMultiplier;
+    
     return {
-      id: 0,
-      userId: lithophaneDetails.userId || null,
-      name: lithophaneDetails.name || '',
-      description: lithophaneDetails.description || '',
+      id: 0, // Temporary ID
+      userId: lithophaneDetails.userId || 0,
       imageUrl: lithophaneDetails.imageUrl || '',
       width: lithophaneDetails.width || 0,
       height: lithophaneDetails.height || 0,
-      depth: lithophaneDetails.depth || 0,
-      material: lithophaneDetails.material || 'PLA',
-      quality: lithophaneDetails.quality || 'standard',
-      cost: 0,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      thickness: lithophaneDetails.thickness || 'medium',
+      hasFrame: lithophaneDetails.hasFrame || false,
+      hasStand: lithophaneDetails.hasStand || false,
+      hasLighting: lithophaneDetails.hasLighting || false,
+      quantity: lithophaneDetails.quantity || 1,
+      notes: lithophaneDetails.notes || '',
+      price: Math.round(totalCost * 100) / 100,
+      status: 'calculated',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
   }
   
   async saveLithophane(lithophane: InsertLithophane): Promise<Lithophane> {
-    return this.prisma.lithophane.create({
-      data: lithophane
-    });
+    const result = await db.insert(lithophanes).values(lithophane).returning();
+    return result[0];
   }
   
   async getLithophanes(userId?: number): Promise<Lithophane[]> {
-    return this.prisma.lithophane.findMany({
-      where: userId ? { userId: userId.toString() } : undefined
-    });
+    if (userId) {
+      return db.select().from(lithophanes).where(eq(lithophanes.userId, userId));
+    } else {
+      return db.select().from(lithophanes);
+    }
   }
   
   async getLithophaneById(id: number): Promise<Lithophane | undefined> {
-    return this.prisma.lithophane.findUnique({
-      where: { id: id.toString() }
-    });
+    const result = await db.select().from(lithophanes).where(eq(lithophanes.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
-
+  
   async getOrdersByUserId(userId: number): Promise<Order[]> {
-    return this.prisma.order.findMany({
-      where: { userId: userId.toString() },
-      include: {
-        items: {
-          include: { product: true }
-        }
-      }
-    });
+    return db.select().from(orders).where(eq(orders.userId, userId));
   }
 }
 
-export const storage = new PrismaStorage();
+export const storage = new DrizzleStorage();

@@ -1,7 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import routes from "./routes";
+import router from "./routes";
+import { createTables } from "./db/create-tables";
 
 dotenv.config();
 
@@ -12,8 +13,21 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Initialize database tables
+async function initDatabase() {
+  try {
+    await createTables();
+    console.log("Database tables created successfully");
+  } catch (error) {
+    console.error("Error creating database tables:", error);
+  }
+}
+
+// Call the database initialization
+initDatabase();
+
 // Routes
-app.use("/api", routes);
+app.use("/api", router);
 
 // Welcome route
 app.get("/", (_req, res) => {

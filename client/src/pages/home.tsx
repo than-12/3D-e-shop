@@ -165,23 +165,17 @@ const Home = () => {
 
             <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {isLoading ? (
-                // Loading skeletons
-                [...Array(4)].map((_, index) => (
-                  <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 animate-pulse">
-                    <div className="bg-gray-300 h-64 w-full rounded-md"></div>
-                    <div className="mt-4 bg-gray-300 h-6 w-3/4 rounded"></div>
-                    <div className="mt-2 bg-gray-300 h-4 w-full rounded"></div>
-                    <div className="mt-4 flex justify-between">
-                      <div className="bg-gray-300 h-6 w-16 rounded"></div>
-                      <div className="bg-gray-300 h-6 w-20 rounded"></div>
-                    </div>
-                    <div className="mt-4 bg-gray-300 h-10 w-full rounded"></div>
-                  </div>
-                ))
-              ) : (
-                featuredProducts?.map(product => (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">{t('common.loading')}</p>
+                </div>
+              ) : Array.isArray(featuredProducts) && featuredProducts.length > 0 ? (
+                featuredProducts.map(product => (
                   <ProductCard key={product.id} product={product} />
                 ))
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">{t('home.no_featured_products')}</p>
+                </div>
               )}
             </div>
 

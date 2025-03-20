@@ -12,10 +12,10 @@ import {
   insertProductSchema,
   type CustomPrint,
   type Lithophane
-} from "@shared/schema";
+} from "./db/schema";
 import bcrypt from 'bcrypt';
 import { Router } from "express";
-import { DrizzleStorage } from "./db/storage";
+import { DrizzleStorage } from "./storage";
 import { Session } from 'express-session';
 
 declare module 'express' {

@@ -1,9 +1,22 @@
 import express from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
+import { Session } from 'express-session';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+interface CartItem {
+  id: number;
+  productId: string | number;
+  quantity: number;
+  customData?: any;
+}
+
+interface CustomSession extends Session {
+  userId?: string;
+  cart?: CartItem[];
+}
 
 // Σχήμα επαλήθευσης για προσθήκη στο καλάθι
 const addToCartSchema = z.object({
@@ -20,12 +33,9 @@ const updateCartItemSchema = z.object({
 // GET /api/cart - Λήψη καλαθιού
 router.get('/', async (req, res) => {
   try {
-    // Για απλότητα χρησιμοποιούμε ένα τοπικό storage αντί για σύνδεση με βάση
-    // Σε πραγματική εφαρμογή θα χρησιμοποιούσαμε το user ID από το session
-    const userId = req.session?.userId || 'guest';
-    
-    // Προσωρινή υλοποίηση με πλασματικά δεδομένα
-    const cartItems = req.session?.cart || [];
+    const session = req.session as CustomSession;
+    const userId = session?.userId || 'guest';
+    const cartItems = session?.cart || [];
     
     res.json(cartItems);
   } catch (error) {
@@ -41,36 +51,34 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const validatedData = addToCartSchema.parse(req.body);
-    const userId = req.session?.userId || 'guest';
+    const session = req.session as CustomSession;
+    const userId = session?.userId || 'guest';
     
-    // Δημιουργία καλαθιού αν δεν υπάρχει
-    if (!req.session.cart) {
-      req.session.cart = [];
+    if (!session.cart) {
+      session.cart = [];
     }
     
-    // Έλεγχος αν το προϊόν υπάρχει ήδη στο καλάθι
-    const existingItemIndex = req.session.cart.findIndex(
-      (item: any) => item.productId === validatedData.productId
+    const cart = session.cart;
+    const existingItemIndex = cart.findIndex(
+      (item) => item.productId === validatedData.productId
     );
     
     if (existingItemIndex !== -1) {
-      // Ενημέρωση ποσότητας αν υπάρχει ήδη
-      req.session.cart[existingItemIndex].quantity += validatedData.quantity;
+      cart[existingItemIndex].quantity += validatedData.quantity;
     } else {
-      // Προσθήκη νέου αντικειμένου
-      const newItem = {
-        id: Date.now(), // Απλό ID για το session storage
+      const newItem: CartItem = {
+        id: Date.now(),
         productId: validatedData.productId,
         quantity: validatedData.quantity,
         customData: validatedData.customData
       };
-      req.session.cart.push(newItem);
+      cart.push(newItem);
     }
     
     res.status(201).json({ 
       success: true,
       message: 'Το προϊόν προστέθηκε στο καλάθι',
-      cart: req.session.cart
+      cart
     });
   } catch (error) {
     console.error('Error adding to cart:', error);
@@ -87,15 +95,17 @@ router.put('/:id', async (req, res) => {
   try {
     const itemId = parseInt(req.params.id);
     const validatedData = updateCartItemSchema.parse(req.body);
+    const session = req.session as CustomSession;
     
-    if (!req.session.cart) {
+    if (!session.cart) {
       return res.status(404).json({ 
         success: false,
         message: 'Το καλάθι δεν βρέθηκε' 
       });
     }
     
-    const itemIndex = req.session.cart.findIndex((item: any) => item.id === itemId);
+    const cart = session.cart;
+    const itemIndex = cart.findIndex((item) => item.id === itemId);
     
     if (itemIndex === -1) {
       return res.status(404).json({ 
@@ -104,13 +114,12 @@ router.put('/:id', async (req, res) => {
       });
     }
     
-    // Ενημέρωση ποσότητας
-    req.session.cart[itemIndex].quantity = validatedData.quantity;
+    cart[itemIndex].quantity = validatedData.quantity;
     
     res.json({ 
       success: true,
       message: 'Η ποσότητα ενημερώθηκε',
-      cart: req.session.cart
+      cart
     });
   } catch (error) {
     console.error('Error updating cart item:', error);
@@ -126,21 +135,22 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const itemId = parseInt(req.params.id);
+    const session = req.session as CustomSession;
     
-    if (!req.session.cart) {
+    if (!session.cart) {
       return res.status(404).json({ 
         success: false,
         message: 'Το καλάθι δεν βρέθηκε' 
       });
     }
     
-    // Αφαίρεση του προϊόντος από το καλάθι
-    req.session.cart = req.session.cart.filter((item: any) => item.id !== itemId);
+    const cart = session.cart;
+    session.cart = cart.filter((item) => item.id !== itemId);
     
     res.json({ 
       success: true,
       message: 'Το προϊόν αφαιρέθηκε από το καλάθι',
-      cart: req.session.cart
+      cart: session.cart
     });
   } catch (error) {
     console.error('Error removing from cart:', error);
@@ -154,8 +164,8 @@ router.delete('/:id', async (req, res) => {
 // DELETE /api/cart - Εκκαθάριση καλαθιού
 router.delete('/', async (req, res) => {
   try {
-    // Εκκαθάριση καλαθιού
-    req.session.cart = [];
+    const session = req.session as CustomSession;
+    session.cart = [];
     
     res.json({ 
       success: true,
